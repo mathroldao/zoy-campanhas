@@ -36,6 +36,10 @@ section[data-testid="stSidebar"] {
     min-width: 280px !important;
 }
 
+[data-testid="collapsedControl"] {
+    display: none !important;
+}
+
 section[data-testid="stSidebar"] * {
     color: #111827 !important;
 }
