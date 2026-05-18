@@ -1,4 +1,6 @@
 import sqlite3
+from urllib.parse import quote
+
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -12,9 +14,21 @@ st.set_page_config(
     initial_sidebar_state="expanded"
 )
 
+# =========================
+# CSS
+# =========================
 st.markdown("""
 <style>
-header[data-testid="stHeader"] { display: none !important; }
+header[data-testid="stHeader"] { 
+    display: none !important; 
+}
+
+[data-testid="collapsedControl"],
+[data-testid="stSidebarCollapseButton"],
+button[kind="header"],
+section[data-testid="stSidebar"] button[kind="header"] {
+    display: none !important;
+}
 
 .stApp {
     background: #FFFFFF;
@@ -33,11 +47,7 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid rgba(17,24,39,0.10);
     display: block !important;
     visibility: visible !important;
-    min-width: 280px !important;
-}
-
-[data-testid="collapsedControl"] {
-    display: none !important;
+    min-width: 290px !important;
 }
 
 section[data-testid="stSidebar"] * {
@@ -162,7 +172,6 @@ hr {
     );
     margin: 32px 0;
     border-radius: 999px;
-    box-shadow: none !important;
 }
 
 div[data-baseweb="input"],
@@ -233,45 +242,105 @@ div[data-baseweb="input"] * {
     letter-spacing: .7px;
 }
 
-.logo-wrapper {
-    margin-bottom: 22px;
-}
-
-.sidebar-caption {
-    color: #6B7280 !important;
-    font-size: 13px;
-    margin-top: -5px;
-    margin-bottom: 14px;
-}
-
-div[role="radiogroup"] label > div:first-child {
-    display: none !important;
-}
-
-div[role="radiogroup"] label {
-    background: transparent !important;
-    border-radius: 14px !important;
-    padding: 12px 14px !important;
-    margin-bottom: 4px !important;
-}
-
-div[role="radiogroup"] label:hover {
-    background: rgba(168,85,247,0.08) !important;
-}
-
-div[role="radiogroup"] label:has(input:checked) {
-    background: rgba(168,85,247,0.12) !important;
-    border-left: 4px solid #7C3AED !important;
-}
-
 .danger-note {
     color: #DC2626 !important;
     font-size: 13px;
+}
+
+/* =========================
+   SIDEBAR CUSTOM
+========================= */
+.sidebar-logo-wrapper {
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
+.sidebar-caption {
+    color: #111827 !important;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 18px;
+}
+
+.sidebar-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: linear-gradient(90deg, #7C3AED, #A855F7);
+    color: #FFFFFF !important;
+    font-weight: 800;
+    font-size: 16px;
+    text-decoration: none !important;
+    box-shadow: 0 12px 24px rgba(124,58,237,0.22);
+    margin: 12px 0 28px 0;
+}
+
+.sidebar-cta:hover {
+    background: linear-gradient(90deg, #6D28D9, #9333EA);
+    color: #FFFFFF !important;
+    text-decoration: none !important;
+}
+
+.sidebar-menu-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827 !important;
+    margin-bottom: 10px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 16px;
+    margin: 7px 0;
+    border-radius: 16px;
+    color: #111827 !important;
+    font-size: 16px;
+    font-weight: 650;
+    text-decoration: none !important;
+    transition: all .18s ease;
+    border-left: 4px solid transparent;
+}
+
+.nav-item svg {
+    width: 21px;
+    height: 21px;
+    stroke: #111827;
+    stroke-width: 2;
+}
+
+.nav-item:hover {
+    background: rgba(168,85,247,0.07);
+    text-decoration: none !important;
+}
+
+.nav-item.active {
+    background: rgba(168,85,247,0.13);
+    color: #7C3AED !important;
+    border-left: 4px solid #7C3AED;
+}
+
+.nav-item.active svg {
+    stroke: #7C3AED;
+}
+
+.sidebar-version {
+    color: #9CA3AF !important;
+    font-size: 12px;
+    margin-top: 26px;
 }
 </style>
 """, unsafe_allow_html=True)
 
 
+# =========================
+# DATABASE
+# =========================
 def conectar():
     return sqlite3.connect(DB_NAME, check_same_thread=False)
 
@@ -575,26 +644,13 @@ def excluir_campanha(campanha_id):
 
 criar_tabelas()
 
-if "qtd_influ_squad" not in st.session_state:
-    st.session_state.qtd_influ_squad = 2
 
-if "tipo_campanha_atual" not in st.session_state:
-    st.session_state.tipo_campanha_atual = "Individual"
-
-if "pagina_ativa" not in st.session_state:
-    st.session_state.pagina_ativa = "Dashboard"
-
-
-st.sidebar.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
-st.sidebar.image("logo_zoy_dark.png", width=115)
-st.sidebar.markdown('</div>', unsafe_allow_html=True)
-st.sidebar.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
-
-if st.sidebar.button("+ Nova Campanha", use_container_width=True):
-    st.session_state.pagina_ativa = "Nova Campanha"
-
-menu_opcoes = [
+# =========================
+# PAGE ROUTING
+# =========================
+PAGINAS_VALIDAS = [
     "Dashboard",
+    "Nova Campanha",
     "Campanhas",
     "Detalhe da Campanha",
     "Squads",
@@ -602,23 +658,82 @@ menu_opcoes = [
     "Relatórios"
 ]
 
-if st.session_state.pagina_ativa == "Nova Campanha":
-    pagina = "Nova Campanha"
-    st.sidebar.radio(
-        "Menu",
-        menu_opcoes,
-        index=0
-    )
-else:
-    pagina = st.sidebar.radio(
-        "Menu",
-        menu_opcoes,
-        index=menu_opcoes.index(st.session_state.pagina_ativa) if st.session_state.pagina_ativa in menu_opcoes else 0
-    )
-    st.session_state.pagina_ativa = pagina
+pagina_query = st.query_params.get("page", "Dashboard")
+if isinstance(pagina_query, list):
+    pagina_query = pagina_query[0]
 
-st.sidebar.markdown("---")
-st.sidebar.caption("Zoy Campaign OS · V10")
+pagina = pagina_query if pagina_query in PAGINAS_VALIDAS else "Dashboard"
+
+
+# =========================
+# SIDEBAR
+# =========================
+def icon_svg(nome):
+    icons = {
+        "dashboard": """
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+        """,
+        "folder": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path></svg>
+        """,
+        "file": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h6"></path></svg>
+        """,
+        "users": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path><circle cx="10" cy="7" r="4"></circle><path d="M21 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        """,
+        "contract": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 12h8"></path><path d="M8 16h8"></path><path d="M8 20h4"></path></svg>
+        """,
+        "chart": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 3v18h18"></path><rect x="7" y="12" width="3" height="6"></rect><rect x="12" y="8" width="3" height="10"></rect><rect x="17" y="5" width="3" height="13"></rect></svg>
+        """
+    }
+    return icons.get(nome, "")
+
+
+def nav_item(label, page, icon_name):
+    active = "active" if pagina == page else ""
+    return f"""
+    <a class="nav-item {active}" href="?page={quote(page)}">
+        {icon_svg(icon_name)}
+        <span>{label}</span>
+    </a>
+    """
+
+
+with st.sidebar:
+    st.markdown('<div class="sidebar-logo-wrapper">', unsafe_allow_html=True)
+    st.image("logo_zoy.png", width=118)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        f'<a class="sidebar-cta" href="?page={quote("Nova Campanha")}">+ Nova Campanha</a>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown('<div class="sidebar-menu-title">Menu</div>', unsafe_allow_html=True)
+
+    st.markdown(nav_item("Dashboard", "Dashboard", "dashboard"), unsafe_allow_html=True)
+    st.markdown(nav_item("Campanhas", "Campanhas", "folder"), unsafe_allow_html=True)
+    st.markdown(nav_item("Detalhe da Campanha", "Detalhe da Campanha", "file"), unsafe_allow_html=True)
+    st.markdown(nav_item("Squads", "Squads", "users"), unsafe_allow_html=True)
+    st.markdown(nav_item("Contratos", "Contratos", "contract"), unsafe_allow_html=True)
+    st.markdown(nav_item("Relatórios", "Relatórios", "chart"), unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-version">Zoy Campaign OS · V10</div>', unsafe_allow_html=True)
+
+
+# =========================
+# STATE
+# =========================
+if "qtd_influ_squad" not in st.session_state:
+    st.session_state.qtd_influ_squad = 2
+
+if "tipo_campanha_atual" not in st.session_state:
+    st.session_state.tipo_campanha_atual = "Individual"
 
 
 def campo_influenciador(i, prefixo="nova"):
@@ -677,6 +792,9 @@ def campo_influenciador(i, prefixo="nova"):
     }
 
 
+# =========================
+# DASHBOARD
+# =========================
 if pagina == "Dashboard":
     campanhas_df = buscar_campanhas()
     influ_df = buscar_influenciadores()
@@ -792,6 +910,9 @@ if pagina == "Dashboard":
         st.info("Nenhuma campanha cadastrada ainda.")
 
 
+# =========================
+# NOVA CAMPANHA
+# =========================
 elif pagina == "Nova Campanha":
     st.title("Nova Campanha")
     st.markdown('<div class="sub">Cadastre uma campanha nova e já monte o squad inicial</div>', unsafe_allow_html=True)
@@ -884,6 +1005,9 @@ elif pagina == "Nova Campanha":
             st.success("Campanha cadastrada com sucesso.")
 
 
+# =========================
+# CAMPANHAS
+# =========================
 elif pagina == "Campanhas":
     campanhas_df = buscar_campanhas()
 
@@ -932,6 +1056,9 @@ elif pagina == "Campanhas":
             st.markdown('</div>', unsafe_allow_html=True)
 
 
+# =========================
+# DETALHE DA CAMPANHA
+# =========================
 elif pagina == "Detalhe da Campanha":
     campanhas_df = buscar_campanhas()
 
@@ -1094,6 +1221,9 @@ elif pagina == "Detalhe da Campanha":
             st.markdown('</div>', unsafe_allow_html=True)
 
 
+# =========================
+# SQUADS
+# =========================
 elif pagina == "Squads":
     campanhas_df = buscar_campanhas()
 
@@ -1161,6 +1291,9 @@ elif pagina == "Squads":
             st.dataframe(influ_view, use_container_width=True, hide_index=True)
 
 
+# =========================
+# CONTRATOS
+# =========================
 elif pagina == "Contratos":
     influ_df = buscar_influenciadores()
 
@@ -1202,6 +1335,9 @@ elif pagina == "Contratos":
         st.dataframe(contratos_df, use_container_width=True, hide_index=True)
 
 
+# =========================
+# RELATÓRIOS
+# =========================
 elif pagina == "Relatórios":
     campanhas_df = buscar_campanhas()
 
