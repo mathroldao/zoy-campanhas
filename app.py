@@ -30,13 +30,25 @@ button[kind="header"] {
     max-width: 1450px;
 }
 
-section[data-testid="stSidebar"] {
-    background: #FFFFFF;
-    border-right: 1px solid rgba(17,24,39,0.10);
-    display: block !important;
-    visibility: visible !important;
-    min-width: 240px !important;
-    max-width: 240px !important;
+section[data-testid="stSidebar"] .stButton button {
+    background: transparent !important;
+    color: #111827 !important;
+    border: 0 !important;
+    border-left: 4px solid transparent !important;
+    border-radius: 14px !important;
+    padding: 12px 14px !important;
+    font-size: 16px !important;
+    font-weight: 700 !important;
+    text-align: left !important;
+    justify-content: flex-start !important;
+    box-shadow: none !important;
+    width: 100% !important;
+}
+
+section[data-testid="stSidebar"] .stButton button:hover {
+    background: rgba(168,85,247,0.10) !important;
+    color: #7C3AED !important;
+    border-left: 4px solid #7C3AED !important;
 }
 
 section[data-testid="stSidebar"] * { color: #111827 !important; }
@@ -575,36 +587,41 @@ def ir_para(pagina):
 
 
 with st.sidebar:
-    st.image("logo_zoy.png", width=118)
+    st.image("logo_zoy.png", width=110)
     st.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
+
+    st.write("")
 
     if st.button("+ Nova Campanha", use_container_width=True):
         ir_para("Nova Campanha")
 
+    st.write("")
     st.markdown("**Menu**")
 
-    if st.button("▦  Dashboard", use_container_width=True):
+    if st.button("Dashboard", use_container_width=True):
         ir_para("Dashboard")
 
-    if st.button("▣  Campanhas", use_container_width=True):
+    if st.button("Campanhas", use_container_width=True):
         ir_para("Campanhas")
 
-    if st.button("▤  Detalhe da Campanha", use_container_width=True):
+    if st.button("Detalhe da Campanha", use_container_width=True):
         ir_para("Detalhe da Campanha")
 
-    if st.button("👥  Squads", use_container_width=True):
+    if st.button("Squads", use_container_width=True):
         ir_para("Squads")
 
-    if st.button("📝  Contratos", use_container_width=True):
+    if st.button("Contratos", use_container_width=True):
         ir_para("Contratos")
 
-    if st.button("▥  Relatórios", use_container_width=True):
+    if st.button("Relatórios", use_container_width=True):
         ir_para("Relatórios")
 
-    st.markdown('<div class="sidebar-version">Zoy Campaign OS</div>', unsafe_allow_html=True)
+    st.markdown(
+        '<div class="sidebar-version">Zoy Campaign OS</div>',
+        unsafe_allow_html=True
+    )
 
 pagina = st.session_state.pagina
-
 
 def campo_influenciador(i, prefixo="nova"):
     base_influs = buscar_influenciadores_base()
