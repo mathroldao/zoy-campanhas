@@ -31,6 +31,9 @@ header[data-testid="stHeader"] { display: none !important; }
 section[data-testid="stSidebar"] {
     background: #FFFFFF;
     border-right: 1px solid rgba(17,24,39,0.10);
+    display: block !important;
+    visibility: visible !important;
+    min-width: 280px !important;
 }
 
 section[data-testid="stSidebar"] * {
