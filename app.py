@@ -6,10 +6,9 @@ import plotly.express as px
 DB_NAME = "zoy_campanhas.db"
 
 st.set_page_config(
-    page_title="Zoy Campanhas",
-    page_icon="⚡",
-    layout="wide",
-    initial_sidebar_state="expanded"
+    page_title="Campaign OS",
+    page_icon="🟣",
+    layout="wide"
 )
 
 st.markdown("""
