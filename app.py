@@ -556,7 +556,7 @@ def excluir_campanha(campanha_id):
 criar_tabelas()
 
 st.sidebar.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
-st.sidebar.image("logo_zoy.png", width=115)
+st.sidebar.image("logo_zoy_dark.png", width=115)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 st.sidebar.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
 
