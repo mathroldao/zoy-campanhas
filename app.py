@@ -155,6 +155,20 @@ input, textarea {
     color: #FFFFFF !important;
 }
 
+input::placeholder,
+textarea::placeholder {
+    color: #6B7280 !important;
+    opacity: 1 !important;
+}
+
+div[data-baseweb="select"] * {
+    color: #000000 !important;
+}
+
+div[data-baseweb="input"] * {
+    color: #000000 !important;
+}
+
 .stDataFrame {
     border-radius: 16px;
     overflow: hidden;
