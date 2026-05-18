@@ -1,5 +1,5 @@
 import sqlite3
-from date
+from datetime import date
 import pandas as pd
 import streamlit as st
 import plotly.express as px
