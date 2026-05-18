@@ -1,5 +1,5 @@
 import sqlite3
-from datetime import date
+from date
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -76,20 +76,27 @@ label,
 }
 
 .stButton button,
-div[data-testid="stForm"] button {
+div[data-testid="stForm"] button,
+div[data-testid="stLinkButton"] a {
     background: linear-gradient(90deg, #7C3AED, #A855F7) !important;
     color: white !important;
     border: none !important;
     border-radius: 14px !important;
     padding: 10px 22px !important;
     font-weight: 800 !important;
+    text-decoration: none !important;
 }
 
 .stButton button:hover,
-div[data-testid="stForm"] button:hover {
+div[data-testid="stForm"] button:hover,
+div[data-testid="stLinkButton"] a:hover {
     background: linear-gradient(90deg, #6D28D9, #9333EA) !important;
     color: white !important;
     border: none !important;
+}
+
+div[data-testid="stLinkButton"] a p {
+    color: white !important;
 }
 
 .card {
@@ -224,7 +231,6 @@ div[role="radiogroup"] label:has(input:checked) {
     background: linear-gradient(90deg, rgba(124,58,237,0.38), rgba(168,85,247,0.12)) !important;
     border-left: 4px solid #A855F7 !important;
 }
-
 </style>
 """, unsafe_allow_html=True)
 
@@ -297,7 +303,6 @@ STATUS_CAMPANHA = [
     "Cancelado"
 ]
 
-
 STATUS_CONTEUDO = [
     "Pendente",
     "Recebido",
@@ -307,7 +312,6 @@ STATUS_CONTEUDO = [
     "Postado",
     "Finalizado"
 ]
-
 
 STATUS_CONTRATO = [
     "Não enviado",
@@ -333,7 +337,7 @@ def calcular_progresso(status):
     return mapa.get(status, 0)
 
 
-def salvar_campanha(cliente, campanha, responsavel, valor, inicio, fim, status, drive, briefing, observacoes):
+def salvar_campanha(cliente, campanha, responsavel, valor, inicio, status, drive, briefing, observacoes):
     conn = conectar()
     cursor = conn.cursor()
 
@@ -342,7 +346,7 @@ def salvar_campanha(cliente, campanha, responsavel, valor, inicio, fim, status, 
         cliente, campanha, responsavel, valor, inicio, fim, status, progresso, drive, briefing, observacoes
     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """, (
-        cliente, campanha, responsavel, valor, str(inicio), str(fim), status,
+        cliente, campanha, responsavel, valor, inicio, "", status,
         calcular_progresso(status), drive, briefing, observacoes
     ))
 
@@ -453,7 +457,7 @@ pagina = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Zoy Campaign OS · V5")
+st.sidebar.caption("Zoy Campaign OS · V6")
 
 
 # =========================
@@ -567,7 +571,8 @@ if pagina == "Dashboard":
     st.subheader("Campanhas recentes")
 
     if not campanhas_df.empty:
-        df_view = campanhas_df[["cliente", "campanha", "responsavel", "valor", "inicio", "fim", "status"]].copy()
+        df_view = campanhas_df[["cliente", "campanha", "responsavel", "valor", "inicio", "status"]].copy()
+        df_view = df_view.rename(columns={"inicio": "mês_inicio"})
         df_view["valor"] = df_view["valor"].apply(formatar_moeda)
         st.dataframe(df_view, use_container_width=True, hide_index=True)
     else:
@@ -593,8 +598,7 @@ elif pagina == "Nova Campanha":
             valor = st.number_input("Valor total da campanha", min_value=0.0, step=100.0)
 
         with col2:
-            inicio = st.date_input("Data de início", value=date.today())
-            fim = st.date_input("Data final", value=date.today())
+            mes_inicio = st.text_input("Mês de início da campanha", placeholder="Ex: Maio/2026")
             drive = st.text_input("Link da pasta do Drive")
             status = st.selectbox("Status da campanha", STATUS_CAMPANHA)
 
@@ -676,7 +680,7 @@ elif pagina == "Nova Campanha":
                 st.error("Preencha pelo menos Cliente e Nome da campanha.")
             else:
                 campanha_id = salvar_campanha(
-                    cliente, campanha, responsavel, valor, inicio, fim,
+                    cliente, campanha, responsavel, valor, mes_inicio,
                     status, drive, briefing, observacoes
                 )
 
@@ -718,7 +722,7 @@ elif pagina == "Campanhas":
                 st.subheader(c["campanha"])
                 st.write(f"**Cliente:** {c['cliente']}")
                 st.write(f"**Responsável:** {c['responsavel']}")
-                st.write(f"**Período:** {c['inicio']} até {c['fim']}")
+                st.write(f"**Mês de início:** {c['inicio']}")
 
             with col2:
                 st.write("**Status**")
@@ -777,7 +781,7 @@ elif pagina == "Detalhe da Campanha":
             st.header(campanha["campanha"])
             st.markdown(f'<div class="info-line"><span class="purple">Cliente:</span> {campanha["cliente"]}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="info-line"><span class="purple">Responsável:</span> {campanha["responsavel"]}</div>', unsafe_allow_html=True)
-            st.markdown(f'<div class="info-line"><span class="purple">Período:</span> {campanha["inicio"]} até {campanha["fim"]}</div>', unsafe_allow_html=True)
+            st.markdown(f'<div class="info-line"><span class="purple">Mês de início:</span> {campanha["inicio"]}</div>', unsafe_allow_html=True)
             st.markdown(f'<div class="info-line"><span class="purple">Status:</span> <span class="status-pill">{campanha["status"]}</span></div>', unsafe_allow_html=True)
 
             st.write("**Progresso**")
