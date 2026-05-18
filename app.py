@@ -1,17 +1,16 @@
-import streamlit as st
-import pandas as pd
+import sqlite3
 from datetime import date
+import pandas as pd
+import streamlit as st
 
-st.set_page_config(
-    page_title="Zoy Campanhas",
-    page_icon="⚡",
-    layout="wide"
-)
+DB_NAME = "zoy_campanhas.db"
+
+st.set_page_config(page_title="Zoy Campanhas", page_icon="⚡", layout="wide")
+
 
 # =========================
 # CSS
 # =========================
-
 st.markdown("""
 <style>
 .stApp {
@@ -24,8 +23,18 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid rgba(255,255,255,0.08);
 }
 
-h1, h2, h3 {
+h1, h2, h3, h4, p, span {
     color: #F8FAFC !important;
+}
+
+label,
+.stTextInput label,
+.stTextArea label,
+.stDateInput label,
+.stNumberInput label,
+.stSelectbox label {
+    color: #E2E8F0 !important;
+    font-weight: 600 !important;
 }
 
 [data-testid="stMetric"] {
@@ -68,7 +77,7 @@ h1, h2, h3 {
 }
 
 .zoy-logo {
-    font-size: 38px;
+    font-size: 42px;
     font-weight: 900;
     letter-spacing: -2px;
     color: white;
@@ -76,75 +85,76 @@ h1, h2, h3 {
 }
 
 .sub {
-    color: #94A3B8;
+    color: #94A3B8 !important;
     margin-top: -10px;
     margin-bottom: 25px;
 }
 
-.status {
-    padding: 6px 12px;
-    border-radius: 999px;
-    font-size: 13px;
-    font-weight: 700;
-    display: inline-block;
-}
-
-.status-ok { background: rgba(34,197,94,.15); color: #4ADE80; }
-.status-alert { background: rgba(245,158,11,.15); color: #FBBF24; }
-.status-danger { background: rgba(239,68,68,.15); color: #F87171; }
-.status-info { background: rgba(59,130,246,.15); color: #60A5FA; }
-.status-purple { background: rgba(168,85,247,.15); color: #C084FC; }
-
 hr {
     border-color: rgba(255,255,255,0.08);
+}
+
+div[data-baseweb="input"],
+div[data-baseweb="select"],
+textarea {
+    border-radius: 14px !important;
+}
+
+.stDataFrame {
+    border-radius: 16px;
+    overflow: hidden;
 }
 </style>
 """, unsafe_allow_html=True)
 
-# =========================
-# SESSION STATE
-# =========================
-
-if "campanhas" not in st.session_state:
-    st.session_state.campanhas = []
-
-if "influenciadores" not in st.session_state:
-    st.session_state.influenciadores = []
 
 # =========================
-# SIDEBAR
+# DATABASE
 # =========================
+def conectar():
+    return sqlite3.connect(DB_NAME, check_same_thread=False)
 
-st.sidebar.markdown('<div class="zoy-logo">ZOY</div>', unsafe_allow_html=True)
 
-pagina = st.sidebar.radio(
-    "Menu",
-    [
-        "Dashboard",
-        "Nova Campanha",
-        "Campanhas",
-        "Influenciadores",
-        "Relatórios"
-    ]
-)
+def criar_tabelas():
+    conn = conectar()
+    cursor = conn.cursor()
 
-st.sidebar.markdown("---")
-st.sidebar.caption("Zoy Campaign OS · V1")
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS campanhas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        cliente TEXT,
+        campanha TEXT,
+        responsavel TEXT,
+        valor REAL,
+        inicio TEXT,
+        fim TEXT,
+        status TEXT,
+        progresso INTEGER,
+        drive TEXT,
+        briefing TEXT,
+        observacoes TEXT
+    )
+    """)
 
-# =========================
-# HELPERS
-# =========================
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS influenciadores (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        campanha_id INTEGER,
+        nome TEXT,
+        arroba TEXT,
+        valor REAL,
+        entregaveis TEXT,
+        postagem TEXT,
+        status_conteudo TEXT,
+        status_contrato TEXT,
+        observacoes TEXT,
+        FOREIGN KEY(campanha_id) REFERENCES campanhas(id)
+    )
+    """)
 
-def status_class(status):
-    if status in ["Finalizado", "Aprovado", "Postado"]:
-        return "status-ok"
-    if status in ["Conteúdo em aprovação", "Relatório pendente", "Ajuste solicitado"]:
-        return "status-alert"
-    if status in ["Atrasado", "Cancelado"]:
-        return "status-danger"
-    if status in ["Mapeamento", "Briefing recebido"]:
-        return "status-info"
-    return "status-purple"
+    conn.commit()
+    conn.close()
+
 
 def calcular_progresso(status):
     mapa = {
@@ -162,25 +172,142 @@ def calcular_progresso(status):
     }
     return mapa.get(status, 0)
 
+
+def salvar_campanha(cliente, campanha, responsavel, valor, inicio, fim, status, drive, briefing, observacoes):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO campanhas (
+        cliente, campanha, responsavel, valor, inicio, fim, status, progresso, drive, briefing, observacoes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        cliente, campanha, responsavel, valor, str(inicio), str(fim), status,
+        calcular_progresso(status), drive, briefing, observacoes
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def buscar_campanhas():
+    conn = conectar()
+    df = pd.read_sql_query("SELECT * FROM campanhas ORDER BY id DESC", conn)
+    conn.close()
+    return df
+
+
+def atualizar_status_campanha(campanha_id, novo_status):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    UPDATE campanhas 
+    SET status = ?, progresso = ?
+    WHERE id = ?
+    """, (novo_status, calcular_progresso(novo_status), campanha_id))
+
+    conn.commit()
+    conn.close()
+
+
+def salvar_influenciador(campanha_id, nome, arroba, valor, entregaveis, postagem, status_conteudo, status_contrato, observacoes):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO influenciadores (
+        campanha_id, nome, arroba, valor, entregaveis, postagem,
+        status_conteudo, status_contrato, observacoes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        campanha_id, nome, arroba, valor, entregaveis, str(postagem),
+        status_conteudo, status_contrato, observacoes
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def buscar_influenciadores():
+    conn = conectar()
+    df = pd.read_sql_query("""
+        SELECT 
+            influenciadores.id,
+            campanhas.campanha,
+            campanhas.cliente,
+            influenciadores.nome,
+            influenciadores.arroba,
+            influenciadores.valor,
+            influenciadores.entregaveis,
+            influenciadores.postagem,
+            influenciadores.status_conteudo,
+            influenciadores.status_contrato,
+            influenciadores.observacoes
+        FROM influenciadores
+        LEFT JOIN campanhas ON influenciadores.campanha_id = campanhas.id
+        ORDER BY influenciadores.id DESC
+    """, conn)
+    conn.close()
+    return df
+
+
+def buscar_influenciadores_por_campanha(campanha_id):
+    conn = conectar()
+    df = pd.read_sql_query("""
+        SELECT * FROM influenciadores
+        WHERE campanha_id = ?
+        ORDER BY id DESC
+    """, conn, params=(campanha_id,))
+    conn.close()
+    return df
+
+
+criar_tabelas()
+
+
+# =========================
+# SIDEBAR
+# =========================
+st.sidebar.markdown('<div class="zoy-logo">ZOY</div>', unsafe_allow_html=True)
+
+pagina = st.sidebar.radio(
+    "Menu",
+    [
+        "Dashboard",
+        "Nova Campanha",
+        "Campanhas",
+        "Influenciadores",
+        "Relatórios"
+    ]
+)
+
+st.sidebar.markdown("---")
+st.sidebar.caption("Zoy Campaign OS · SQLite V1")
+
+
 # =========================
 # DASHBOARD
 # =========================
-
 if pagina == "Dashboard":
+    campanhas_df = buscar_campanhas()
+    influ_df = buscar_influenciadores()
+
     st.title("Dashboard de Campanhas")
     st.markdown('<div class="sub">Visão geral das campanhas ativas da Agência Zoy</div>', unsafe_allow_html=True)
 
-    total = len(st.session_state.campanhas)
-    ativas = len([c for c in st.session_state.campanhas if c["status"] != "Finalizado"])
-    finalizadas = len([c for c in st.session_state.campanhas if c["status"] == "Finalizado"])
-    pendentes = len([c for c in st.session_state.campanhas if c["status"] in ["Conteúdo pendente", "Conteúdo em aprovação", "Relatório pendente"]])
+    total = len(campanhas_df)
+    ativas = len(campanhas_df[campanhas_df["status"] != "Finalizado"]) if total > 0 else 0
+    finalizadas = len(campanhas_df[campanhas_df["status"] == "Finalizado"]) if total > 0 else 0
+    pendentes = len(campanhas_df[campanhas_df["status"].isin(["Conteúdo pendente", "Conteúdo em aprovação", "Relatório pendente"])]) if total > 0 else 0
+    investimento = campanhas_df["valor"].sum() if total > 0 else 0
 
-    col1, col2, col3, col4 = st.columns(4)
-
+    col1, col2, col3, col4, col5 = st.columns(5)
     col1.metric("Campanhas totais", total)
     col2.metric("Campanhas ativas", ativas)
     col3.metric("Pendências", pendentes)
     col4.metric("Finalizadas", finalizadas)
+    col5.metric("Investimento total", f"R$ {investimento:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
 
     st.markdown("---")
 
@@ -189,9 +316,12 @@ if pagina == "Dashboard":
     with col_a:
         st.subheader("Campanhas recentes")
 
-        if st.session_state.campanhas:
-            df = pd.DataFrame(st.session_state.campanhas)
-            st.dataframe(df, use_container_width=True, hide_index=True)
+        if not campanhas_df.empty:
+            st.dataframe(
+                campanhas_df[["cliente", "campanha", "responsavel", "valor", "inicio", "fim", "status", "progresso"]],
+                use_container_width=True,
+                hide_index=True
+            )
         else:
             st.info("Nenhuma campanha cadastrada ainda.")
 
@@ -207,13 +337,13 @@ if pagina == "Dashboard":
         st.markdown("**Resumo rápido**")
         st.write(f"Campanhas ativas: {ativas}")
         st.write(f"Campanhas finalizadas: {finalizadas}")
-        st.write(f"Influenciadores cadastrados: {len(st.session_state.influenciadores)}")
+        st.write(f"Influenciadores cadastrados: {len(influ_df)}")
         st.markdown('</div>', unsafe_allow_html=True)
+
 
 # =========================
 # NOVA CAMPANHA
 # =========================
-
 elif pagina == "Nova Campanha":
     st.title("Nova Campanha")
     st.markdown('<div class="sub">Cadastre uma campanha nova para acompanhamento interno</div>', unsafe_allow_html=True)
@@ -249,40 +379,31 @@ elif pagina == "Nova Campanha":
             )
 
         briefing = st.text_area("Resumo do briefing")
-        obs = st.text_area("Observações internas")
+        observacoes = st.text_area("Observações internas")
 
         salvar = st.form_submit_button("Salvar campanha")
 
         if salvar:
-            nova = {
-                "cliente": cliente,
-                "campanha": campanha,
-                "responsavel": responsavel,
-                "valor": valor,
-                "inicio": str(inicio),
-                "fim": str(fim),
-                "status": status,
-                "progresso": calcular_progresso(status),
-                "drive": drive,
-                "briefing": briefing,
-                "observacoes": obs
-            }
+            if not cliente or not campanha:
+                st.error("Preencha pelo menos Cliente e Nome da campanha.")
+            else:
+                salvar_campanha(cliente, campanha, responsavel, valor, inicio, fim, status, drive, briefing, observacoes)
+                st.success("Campanha cadastrada com sucesso.")
 
-            st.session_state.campanhas.append(nova)
-            st.success("Campanha cadastrada com sucesso.")
 
 # =========================
 # CAMPANHAS
 # =========================
-
 elif pagina == "Campanhas":
-    st.title("Campanhas")
-    st.markdown('<div class="sub">Acompanhe status, progresso e responsáveis</div>', unsafe_allow_html=True)
+    campanhas_df = buscar_campanhas()
 
-    if not st.session_state.campanhas:
+    st.title("Campanhas")
+    st.markdown('<div class="sub">Acompanhe status, progresso, squad e responsáveis</div>', unsafe_allow_html=True)
+
+    if campanhas_df.empty:
         st.info("Nenhuma campanha cadastrada ainda.")
     else:
-        for i, c in enumerate(st.session_state.campanhas):
+        for _, c in campanhas_df.iterrows():
             st.markdown('<div class="card">', unsafe_allow_html=True)
 
             col1, col2, col3 = st.columns([2, 1, 1])
@@ -295,90 +416,98 @@ elif pagina == "Campanhas":
 
             with col2:
                 st.write("**Status**")
-                st.markdown(
-                    f'<span class="status {status_class(c["status"])}">{c["status"]}</span>',
-                    unsafe_allow_html=True
-                )
-                st.write("")
-                st.progress(c["progresso"] / 100)
+                st.write(c["status"])
+                st.progress(int(c["progresso"]) / 100)
 
             with col3:
+                valor_formatado = f"R$ {c['valor']:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
                 st.write("**Valor**")
-                st.subheader(f"R$ {c['valor']:,.2f}".replace(",", "X").replace(".", ",").replace("X", "."))
+                st.subheader(valor_formatado)
+
                 if c["drive"]:
                     st.link_button("Abrir Drive", c["drive"])
 
-            with st.expander("Ver detalhes"):
+            with st.expander("Ver detalhes da campanha"):
                 st.write("**Briefing:**")
                 st.write(c["briefing"] if c["briefing"] else "Sem briefing cadastrado.")
 
                 st.write("**Observações:**")
                 st.write(c["observacoes"] if c["observacoes"] else "Sem observações.")
 
+                st.markdown("---")
+                st.write("**Squad da campanha:**")
+
+                squad_df = buscar_influenciadores_por_campanha(int(c["id"]))
+
+                if squad_df.empty:
+                    st.info("Nenhum influenciador cadastrado nesta campanha ainda.")
+                else:
+                    st.dataframe(
+                        squad_df[["nome", "arroba", "valor", "entregaveis", "postagem", "status_conteudo", "status_contrato"]],
+                        use_container_width=True,
+                        hide_index=True
+                    )
+
+                st.markdown("---")
+
+                opcoes_status = [
+                    "Briefing recebido",
+                    "Mapeamento",
+                    "Casting enviado",
+                    "Negociação",
+                    "Contrato enviado",
+                    "Conteúdo pendente",
+                    "Conteúdo em aprovação",
+                    "Aprovado",
+                    "Postado",
+                    "Relatório pendente",
+                    "Finalizado"
+                ]
+
                 novo_status = st.selectbox(
                     "Atualizar status",
-                    [
-                        "Briefing recebido",
-                        "Mapeamento",
-                        "Casting enviado",
-                        "Negociação",
-                        "Contrato enviado",
-                        "Conteúdo pendente",
-                        "Conteúdo em aprovação",
-                        "Aprovado",
-                        "Postado",
-                        "Relatório pendente",
-                        "Finalizado"
-                    ],
-                    index=[
-                        "Briefing recebido",
-                        "Mapeamento",
-                        "Casting enviado",
-                        "Negociação",
-                        "Contrato enviado",
-                        "Conteúdo pendente",
-                        "Conteúdo em aprovação",
-                        "Aprovado",
-                        "Postado",
-                        "Relatório pendente",
-                        "Finalizado"
-                    ].index(c["status"]),
-                    key=f"status_{i}"
+                    opcoes_status,
+                    index=opcoes_status.index(c["status"]) if c["status"] in opcoes_status else 0,
+                    key=f"status_{c['id']}"
                 )
 
-                if st.button("Salvar novo status", key=f"btn_status_{i}"):
-                    st.session_state.campanhas[i]["status"] = novo_status
-                    st.session_state.campanhas[i]["progresso"] = calcular_progresso(novo_status)
+                if st.button("Salvar novo status", key=f"btn_status_{c['id']}"):
+                    atualizar_status_campanha(int(c["id"]), novo_status)
                     st.success("Status atualizado.")
                     st.rerun()
 
             st.markdown('</div>', unsafe_allow_html=True)
 
+
 # =========================
 # INFLUENCIADORES
 # =========================
-
 elif pagina == "Influenciadores":
+    campanhas_df = buscar_campanhas()
+
     st.title("Influenciadores")
     st.markdown('<div class="sub">Cadastre influenciadores por campanha e acompanhe entregas</div>', unsafe_allow_html=True)
 
-    if not st.session_state.campanhas:
+    if campanhas_df.empty:
         st.warning("Cadastre uma campanha antes de adicionar influenciadores.")
     else:
-        campanhas_nomes = [c["campanha"] for c in st.session_state.campanhas]
+        campanhas_dict = {
+            f"{row['campanha']} | {row['cliente']}": int(row["id"])
+            for _, row in campanhas_df.iterrows()
+        }
 
         with st.form("form_influ"):
             col1, col2 = st.columns(2)
 
             with col1:
-                campanha_ref = st.selectbox("Campanha", campanhas_nomes)
+                campanha_escolhida = st.selectbox("Campanha", list(campanhas_dict.keys()))
                 nome = st.text_input("Nome do influenciador")
                 arroba = st.text_input("@ do influenciador")
                 valor = st.number_input("Cachê", min_value=0.0, step=100.0)
 
             with col2:
                 entregaveis = st.text_input("Entregáveis", placeholder="Ex: 1 Reels + 2 combos de stories")
-                data_postagem = st.date_input("Data prevista de postagem")
+                postagem = st.date_input("Data prevista de postagem")
                 status_conteudo = st.selectbox(
                     "Status do conteúdo",
                     [
@@ -400,54 +529,60 @@ elif pagina == "Influenciadores":
                     ]
                 )
 
-            obs = st.text_area("Observações")
+            observacoes = st.text_area("Observações")
 
-            salvar_influ = st.form_submit_button("Salvar influenciador")
+            salvar = st.form_submit_button("Salvar influenciador")
 
-            if salvar_influ:
-                st.session_state.influenciadores.append({
-                    "campanha": campanha_ref,
-                    "nome": nome,
-                    "arroba": arroba,
-                    "valor": valor,
-                    "entregaveis": entregaveis,
-                    "postagem": str(data_postagem),
-                    "status_conteudo": status_conteudo,
-                    "status_contrato": status_contrato,
-                    "observacoes": obs
-                })
-
-                st.success("Influenciador cadastrado com sucesso.")
+            if salvar:
+                if not nome:
+                    st.error("Preencha o nome do influenciador.")
+                else:
+                    campanha_id = campanhas_dict[campanha_escolhida]
+                    salvar_influenciador(
+                        campanha_id, nome, arroba, valor, entregaveis,
+                        postagem, status_conteudo, status_contrato, observacoes
+                    )
+                    st.success("Influenciador cadastrado com sucesso.")
 
         st.markdown("---")
         st.subheader("Influenciadores cadastrados")
 
-        if st.session_state.influenciadores:
-            df_influ = pd.DataFrame(st.session_state.influenciadores)
-            st.dataframe(df_influ, use_container_width=True, hide_index=True)
-        else:
+        influ_df = buscar_influenciadores()
+
+        if influ_df.empty:
             st.info("Nenhum influenciador cadastrado ainda.")
+        else:
+            st.dataframe(influ_df, use_container_width=True, hide_index=True)
+
 
 # =========================
 # RELATÓRIOS
 # =========================
-
 elif pagina == "Relatórios":
+    campanhas_df = buscar_campanhas()
+
     st.title("Relatórios")
     st.markdown('<div class="sub">Visão simples para acompanhar relatórios pendentes e finalizados</div>', unsafe_allow_html=True)
 
-    if not st.session_state.campanhas:
+    if campanhas_df.empty:
         st.info("Nenhuma campanha cadastrada ainda.")
     else:
         relatorios = []
 
-        for c in st.session_state.campanhas:
+        for _, c in campanhas_df.iterrows():
+            if c["status"] == "Finalizado":
+                status_relatorio = "Finalizado"
+            elif c["status"] == "Relatório pendente":
+                status_relatorio = "Pendente"
+            else:
+                status_relatorio = "Não iniciado"
+
             relatorios.append({
                 "campanha": c["campanha"],
                 "cliente": c["cliente"],
                 "responsavel": c["responsavel"],
-                "status": c["status"],
-                "relatorio": "Pendente" if c["status"] == "Relatório pendente" else "Não iniciado" if c["status"] != "Finalizado" else "Finalizado"
+                "status_campanha": c["status"],
+                "relatorio": status_relatorio
             })
 
         df_rel = pd.DataFrame(relatorios)
