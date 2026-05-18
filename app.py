@@ -594,13 +594,20 @@ menu_opcoes = [
     "Relatórios"
 ]
 
-pagina = st.sidebar.radio(
-    "Menu",
-    menu_opcoes,
-    index=menu_opcoes.index(st.session_state.pagina_ativa) if st.session_state.pagina_ativa in menu_opcoes else 0
-)
-
-st.session_state.pagina_ativa = pagina
+if st.session_state.pagina_ativa == "Nova Campanha":
+    pagina = "Nova Campanha"
+    st.sidebar.radio(
+        "Menu",
+        menu_opcoes,
+        index=0
+    )
+else:
+    pagina = st.sidebar.radio(
+        "Menu",
+        menu_opcoes,
+        index=menu_opcoes.index(st.session_state.pagina_ativa) if st.session_state.pagina_ativa in menu_opcoes else 0
+    )
+    st.session_state.pagina_ativa = pagina
 
 st.sidebar.markdown("---")
 st.sidebar.caption("Zoy Campaign OS · V10")
