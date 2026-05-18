@@ -125,10 +125,6 @@ div[data-testid="stLinkButton"] a p {
     display: none !important;
 }
 
-section[data-testid="stSidebar"] img {
-    filter: invert(1);
-}
-
 .sub {
     color: #6B7280 !important;
     margin-top: -10px;
@@ -583,7 +579,7 @@ if "pagina_ativa" not in st.session_state:
 
 
 st.sidebar.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
-st.sidebar.image("logo_zoy.png", width=115)
+st.sidebar.image("logo_zoy_dark.png", width=115)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 st.sidebar.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
 
