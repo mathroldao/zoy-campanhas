@@ -16,10 +16,7 @@ st.markdown("""
 <style>
 header[data-testid="stHeader"] { display: none !important; }
 
-.stApp {
-    background: #000000;
-    color: #F8FAFC;
-}
+.stApp { background: #000000; color: #F8FAFC; }
 
 .main .block-container {
     padding-top: 3rem;
@@ -33,13 +30,9 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid rgba(168,85,247,0.35);
 }
 
-section[data-testid="stSidebar"] * {
-    color: #F8FAFC !important;
-}
+section[data-testid="stSidebar"] * { color: #F8FAFC !important; }
 
-h1, h2, h3, h4, h5, h6, p, span, label {
-    color: #F8FAFC !important;
-}
+h1, h2, h3, h4, h5, h6, p, span, label { color: #F8FAFC !important; }
 
 label,
 .stTextInput label,
@@ -88,9 +81,7 @@ div[data-testid="stLinkButton"] a:hover {
     border: none !important;
 }
 
-div[data-testid="stLinkButton"] a p {
-    color: white !important;
-}
+div[data-testid="stLinkButton"] a p { color: white !important; }
 
 .card {
     background: linear-gradient(145deg, #050505, #0C0C0F);
@@ -140,9 +131,7 @@ textarea {
     border-color: rgba(168,85,247,0.25) !important;
 }
 
-input, textarea {
-    color: #000000 !important;
-}
+input, textarea { color: #000000 !important; }
 
 input::placeholder,
 textarea::placeholder {
@@ -150,13 +139,8 @@ textarea::placeholder {
     opacity: 1 !important;
 }
 
-div[data-baseweb="select"] * {
-    color: #000000 !important;
-}
-
-div[data-baseweb="input"] * {
-    color: #000000 !important;
-}
+div[data-baseweb="select"] * { color: #000000 !important; }
+div[data-baseweb="input"] * { color: #000000 !important; }
 
 .stDataFrame {
     border-radius: 16px;
@@ -209,9 +193,7 @@ div[data-baseweb="input"] * {
     margin-bottom: 28px;
 }
 
-div[role="radiogroup"] label > div:first-child {
-    display: none !important;
-}
+div[role="radiogroup"] label > div:first-child { display: none !important; }
 
 div[role="radiogroup"] label {
     background: transparent !important;
@@ -220,9 +202,7 @@ div[role="radiogroup"] label {
     margin-bottom: 4px !important;
 }
 
-div[role="radiogroup"] label:hover {
-    background: rgba(168,85,247,0.14) !important;
-}
+div[role="radiogroup"] label:hover { background: rgba(168,85,247,0.14) !important; }
 
 div[role="radiogroup"] label:has(input:checked) {
     background: linear-gradient(90deg, rgba(124,58,237,0.38), rgba(168,85,247,0.12)) !important;
@@ -500,7 +480,14 @@ pagina = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Zoy Campaign OS · V7")
+st.sidebar.caption("Zoy Campaign OS · V8")
+
+
+if "qtd_influ_squad" not in st.session_state:
+    st.session_state.qtd_influ_squad = 2
+
+if "tipo_campanha_atual" not in st.session_state:
+    st.session_state.tipo_campanha_atual = "Individual"
 
 
 if pagina == "Dashboard":
@@ -623,114 +610,128 @@ elif pagina == "Nova Campanha":
     st.title("Nova Campanha")
     st.markdown('<div class="sub">Cadastre uma campanha nova e já monte o squad inicial</div>', unsafe_allow_html=True)
 
-    with st.form("form_campanha"):
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
 
-        col1, col2 = st.columns(2)
+    col1, col2 = st.columns(2)
 
-        with col1:
-            cliente = st.text_input("Cliente")
-            campanha = st.text_input("Nome da campanha")
-            responsavel = st.text_input("Responsável interno")
-            valor = st.number_input("Valor total da campanha", min_value=0.0, step=100.0)
+    with col1:
+        cliente = st.text_input("Cliente", key="nova_cliente")
+        campanha = st.text_input("Nome da campanha", key="nova_campanha")
+        responsavel = st.text_input("Responsável interno", key="nova_responsavel")
+        valor = st.number_input("Valor total da campanha", min_value=0.0, step=100.0, key="nova_valor")
 
-        with col2:
-            mes_inicio = st.text_input("Mês de início da campanha", placeholder="Ex: Maio/2026")
-            prazo_pagamento = st.text_input("Prazo de pagamento", placeholder="Ex: 45 dias após postagem")
-            drive = st.text_input("Link da pasta do Drive")
-            status = st.selectbox("Status da campanha", STATUS_CAMPANHA)
+    with col2:
+        mes_inicio = st.text_input("Mês de início da campanha", placeholder="Ex: Maio/2026", key="nova_mes_inicio")
+        prazo_pagamento = st.text_input("Prazo de pagamento", placeholder="Ex: 45 dias após postagem", key="nova_prazo")
+        drive = st.text_input("Link da pasta do Drive", key="nova_drive")
+        status = st.selectbox("Status da campanha", STATUS_CAMPANHA, key="nova_status")
 
-        briefing = st.text_area("Resumo do briefing")
-        observacoes = st.text_area("Observações internas")
+    briefing = st.text_area("Resumo do briefing", key="nova_briefing")
+    observacoes = st.text_area("Observações internas", key="nova_observacoes")
 
-        st.markdown("---")
-        st.subheader("Influenciadores da campanha")
+    st.markdown("---")
+    st.subheader("Influenciadores da campanha")
 
-        tipo_campanha = st.radio(
-            "Essa campanha é individual ou squad?",
-            ["Individual", "Squad"],
-            horizontal=True
-        )
+    tipo_campanha = st.radio(
+        "Essa campanha é individual ou squad?",
+        ["Individual", "Squad"],
+        horizontal=True,
+        key="tipo_campanha_radio"
+    )
 
-        qtd_influenciadores = 1
-        if tipo_campanha == "Squad":
-            qtd_influenciadores = st.number_input(
-                "Quantidade de influenciadores no squad",
-                min_value=1,
-                max_value=20,
-                value=2,
-                step=1
+    if tipo_campanha != st.session_state.tipo_campanha_atual:
+        st.session_state.tipo_campanha_atual = tipo_campanha
+        st.session_state.qtd_influ_squad = 1 if tipo_campanha == "Individual" else 2
+        st.rerun()
+
+    qtd_influenciadores = 1 if tipo_campanha == "Individual" else st.session_state.qtd_influ_squad
+
+    influenciadores_temp = []
+
+    for i in range(int(qtd_influenciadores)):
+        st.markdown(f"### Influenciador {i + 1}")
+
+        col_a, col_b, col_c = st.columns(3)
+
+        with col_a:
+            arroba_influ = st.text_input(f"@ do influenciador {i + 1}", key=f"nova_arroba_influ_{i}")
+
+        with col_b:
+            valor_influ = st.number_input(f"Cachê {i + 1}", min_value=0.0, step=100.0, key=f"nova_valor_influ_{i}")
+            entregaveis_influ = st.text_input(
+                f"Entregáveis {i + 1}",
+                placeholder="Ex: 1 Reels + 2 combos de stories",
+                key=f"nova_entregaveis_influ_{i}"
             )
 
-        influenciadores_temp = []
+        with col_c:
+            status_contrato_influ = st.selectbox(
+                f"Status contrato {i + 1}",
+                STATUS_CONTRATO,
+                key=f"nova_contrato_influ_{i}"
+            )
+            status_conteudo_influ = st.selectbox(
+                f"Status conteúdo {i + 1}",
+                STATUS_CONTEUDO,
+                key=f"nova_conteudo_influ_{i}"
+            )
 
-        for i in range(int(qtd_influenciadores)):
-            st.markdown(f"#### Influenciador {i + 1}")
+        obs_influ = st.text_area(f"Observações do influenciador {i + 1}", key=f"nova_obs_influ_{i}")
 
-            col_a, col_b, col_c = st.columns(3)
+        influenciadores_temp.append({
+            "arroba": arroba_influ,
+            "valor": valor_influ,
+            "entregaveis": entregaveis_influ,
+            "status_contrato": status_contrato_influ,
+            "status_conteudo": status_conteudo_influ,
+            "observacoes": obs_influ
+        })
 
-            with col_a:
-                arroba_influ = st.text_input(f"@ do influenciador {i + 1}", key=f"arroba_influ_{i}")
+        st.markdown("---")
 
-            with col_b:
-                valor_influ = st.number_input(f"Cachê {i + 1}", min_value=0.0, step=100.0, key=f"valor_influ_{i}")
-                entregaveis_influ = st.text_input(
-                    f"Entregáveis {i + 1}",
-                    placeholder="Ex: 1 Reels + 2 combos de stories",
-                    key=f"entregaveis_influ_{i}"
-                )
+    if tipo_campanha == "Squad":
+        col_add, col_remove, col_space = st.columns([1.2, 1.2, 4])
 
-            with col_c:
-                status_contrato_influ = st.selectbox(
-                    f"Status contrato {i + 1}",
-                    STATUS_CONTRATO,
-                    key=f"contrato_influ_{i}"
-                )
-                status_conteudo_influ = st.selectbox(
-                    f"Status conteúdo {i + 1}",
-                    STATUS_CONTEUDO,
-                    key=f"conteudo_influ_{i}"
-                )
+        with col_add:
+            if st.button("+ Deseja cadastrar mais influenciadores?"):
+                st.session_state.qtd_influ_squad += 1
+                st.rerun()
 
-            obs_influ = st.text_area(f"Observações do influenciador {i + 1}", key=f"obs_influ_{i}")
+        with col_remove:
+            if st.session_state.qtd_influ_squad > 2:
+                if st.button("Remover último influenciador"):
+                    st.session_state.qtd_influ_squad -= 1
+                    st.rerun()
 
-            influenciadores_temp.append({
-                "arroba": arroba_influ,
-                "valor": valor_influ,
-                "entregaveis": entregaveis_influ,
-                "status_contrato": status_contrato_influ,
-                "status_conteudo": status_conteudo_influ,
-                "observacoes": obs_influ
-            })
+    salvar = st.button("Salvar campanha")
 
-            st.markdown("---")
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        salvar = st.form_submit_button("Salvar campanha")
+    if salvar:
+        if not cliente or not campanha:
+            st.error("Preencha pelo menos Cliente e Nome da campanha.")
+        else:
+            campanha_id = salvar_campanha(
+                cliente, campanha, responsavel, valor, mes_inicio,
+                prazo_pagamento, status, drive, briefing, observacoes
+            )
 
-        st.markdown('</div>', unsafe_allow_html=True)
+            for influ in influenciadores_temp:
+                if influ["arroba"]:
+                    salvar_influenciador(
+                        campanha_id,
+                        influ["arroba"],
+                        influ["valor"],
+                        influ["entregaveis"],
+                        influ["status_conteudo"],
+                        influ["status_contrato"],
+                        influ["observacoes"]
+                    )
 
-        if salvar:
-            if not cliente or not campanha:
-                st.error("Preencha pelo menos Cliente e Nome da campanha.")
-            else:
-                campanha_id = salvar_campanha(
-                    cliente, campanha, responsavel, valor, mes_inicio,
-                    prazo_pagamento, status, drive, briefing, observacoes
-                )
+            st.session_state.qtd_influ_squad = 2
+            st.session_state.tipo_campanha_atual = "Individual"
 
-                for influ in influenciadores_temp:
-                    if influ["arroba"]:
-                        salvar_influenciador(
-                            campanha_id,
-                            influ["arroba"],
-                            influ["valor"],
-                            influ["entregaveis"],
-                            influ["status_conteudo"],
-                            influ["status_contrato"],
-                            influ["observacoes"]
-                        )
-
-                st.success("Campanha cadastrada com sucesso.")
+            st.success("Campanha cadastrada com sucesso.")
 
 
 elif pagina == "Campanhas":
