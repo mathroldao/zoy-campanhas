@@ -30,12 +30,12 @@ header[data-testid="stHeader"] {
     padding-top: 3rem;
     padding-left: 4rem;
     padding-right: 4rem;
-    max-width: 1500px;
+    max-width: 1600px;
 }
 
 section[data-testid="stSidebar"] {
     background: #020204;
-    border-right: 1px solid rgba(255,255,255,0.10);
+    border-right: 1px solid rgba(168,85,247,0.35);
 }
 
 section[data-testid="stSidebar"] * {
@@ -57,48 +57,77 @@ label,
 }
 
 [data-testid="stMetric"] {
-    background: #050505;
-    border: 1px solid rgba(255,255,255,0.12);
+    background: linear-gradient(145deg, #070707, #111111);
+    border: 1px solid rgba(168,85,247,0.35);
     padding: 22px;
-    border-radius: 18px;
+    border-radius: 20px;
+    box-shadow: 0 0 30px rgba(168,85,247,0.08);
 }
 
 [data-testid="stMetricValue"] {
     color: #FFFFFF !important;
-    font-size: 34px !important;
+    font-size: 30px !important;
 }
 
 [data-testid="stMetricLabel"] {
-    color: #CBD5E1 !important;
+    color: #C084FC !important;
+    font-weight: 700 !important;
 }
 
-.stButton button {
-    background: linear-gradient(90deg, #7C3AED, #A855F7);
+.stButton button,
+div[data-testid="stForm"] button {
+    background: linear-gradient(90deg, #7C3AED, #A855F7) !important;
     color: white !important;
-    border: none;
-    border-radius: 12px;
-    padding: 10px 22px;
-    font-weight: 700;
+    border: none !important;
+    border-radius: 14px !important;
+    padding: 10px 22px !important;
+    font-weight: 800 !important;
 }
 
-.stButton button:hover {
-    background: linear-gradient(90deg, #6D28D9, #9333EA);
+.stButton button:hover,
+div[data-testid="stForm"] button:hover {
+    background: linear-gradient(90deg, #6D28D9, #9333EA) !important;
     color: white !important;
+    border: none !important;
 }
 
 .card {
-    background: #030303;
-    border: 1px solid rgba(255,255,255,0.12);
-    border-radius: 20px;
+    background: linear-gradient(145deg, #050505, #0C0C0F);
+    border: 1px solid rgba(168,85,247,0.26);
+    border-radius: 24px;
     padding: 26px;
+    margin-bottom: 18px;
+    box-shadow: 0 0 35px rgba(168,85,247,0.06);
+}
+
+.card-purple {
+    background: linear-gradient(145deg, rgba(124,58,237,0.22), rgba(3,3,3,1));
+    border: 1px solid rgba(168,85,247,0.50);
+    border-radius: 24px;
+    padding: 24px;
     margin-bottom: 18px;
 }
 
+.mini-card {
+    background: #050505;
+    border: 1px solid rgba(168,85,247,0.30);
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 12px;
+}
+
 .zoy-logo {
-    font-size: 42px;
-    font-weight: 900;
+    font-size: 44px;
+    font-weight: 950;
     letter-spacing: -2px;
     color: white;
+    margin-bottom: 6px;
+}
+
+.zoy-sub {
+    color: #A855F7 !important;
+    font-size: 13px;
+    font-weight: 700;
     margin-bottom: 28px;
 }
 
@@ -118,7 +147,7 @@ label,
 }
 
 hr {
-    border-color: rgba(255,255,255,0.08);
+    border-color: rgba(168,85,247,0.20);
 }
 
 div[data-baseweb="input"],
@@ -126,6 +155,7 @@ div[data-baseweb="select"],
 textarea {
     background: #101010 !important;
     border-radius: 14px !important;
+    border-color: rgba(168,85,247,0.25) !important;
 }
 
 input, textarea {
@@ -145,21 +175,43 @@ div[data-testid="stDataFrame"] {
     display: inline-block;
     padding: 7px 14px;
     border-radius: 999px;
-    background: rgba(168,85,247,0.15);
+    background: rgba(168,85,247,0.18);
     color: #C084FC !important;
-    font-weight: 700;
+    font-weight: 800;
     font-size: 14px;
+    border: 1px solid rgba(168,85,247,0.35);
 }
 
 .value-big {
     font-size: 34px;
-    font-weight: 900;
+    font-weight: 950;
     color: #A855F7 !important;
 }
 
 .small-muted {
     color: #94A3B8 !important;
     font-size: 14px;
+}
+
+.big-number {
+    font-size: 42px;
+    font-weight: 950;
+    color: #FFFFFF !important;
+    line-height: 1;
+}
+
+.card-title {
+    color: #C084FC !important;
+    font-size: 14px;
+    font-weight: 800;
+    text-transform: uppercase;
+    letter-spacing: .7px;
+}
+
+.progress-label {
+    color: #E2E8F0 !important;
+    font-size: 15px;
+    font-weight: 700;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -213,19 +265,34 @@ def criar_tabelas():
     conn.close()
 
 
+STATUS_CAMPANHA = [
+    "Mapeamento",
+    "Atendimento Iniciado",
+    "Contrato Enviado",
+    "Conteúdo Pendente",
+    "Conteúdo em Aprovação",
+    "Ajuste Solicitado",
+    "Aprovado",
+    "Postado",
+    "Relatório Pendente",
+    "Finalizado",
+    "Cancelado"
+]
+
+
 def calcular_progresso(status):
     mapa = {
-        "Briefing recebido": 10,
-        "Mapeamento": 20,
-        "Casting enviado": 30,
-        "Negociação": 40,
-        "Contrato enviado": 50,
-        "Conteúdo pendente": 60,
-        "Conteúdo em aprovação": 70,
+        "Mapeamento": 10,
+        "Atendimento Iniciado": 20,
+        "Contrato Enviado": 35,
+        "Conteúdo Pendente": 50,
+        "Conteúdo em Aprovação": 65,
+        "Ajuste Solicitado": 70,
         "Aprovado": 80,
         "Postado": 90,
-        "Relatório pendente": 95,
-        "Finalizado": 100
+        "Relatório Pendente": 95,
+        "Finalizado": 100,
+        "Cancelado": 0
     }
     return mapa.get(status, 0)
 
@@ -326,25 +393,12 @@ def formatar_moeda(valor):
 
 criar_tabelas()
 
-STATUS_CAMPANHA = [
-    "Briefing recebido",
-    "Mapeamento",
-    "Casting enviado",
-    "Negociação",
-    "Contrato enviado",
-    "Conteúdo pendente",
-    "Conteúdo em aprovação",
-    "Aprovado",
-    "Postado",
-    "Relatório pendente",
-    "Finalizado"
-]
-
 
 # =========================
 # SIDEBAR
 # =========================
 st.sidebar.markdown('<div class="zoy-logo">ZOY</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="zoy-sub">CAMPAIGN OS</div>', unsafe_allow_html=True)
 
 pagina = st.sidebar.radio(
     "Menu",
@@ -359,7 +413,7 @@ pagina = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Zoy Campaign OS · SQLite V1")
+st.sidebar.caption("Zoy Campaign OS · V3")
 
 
 # =========================
@@ -370,49 +424,106 @@ if pagina == "Dashboard":
     influ_df = buscar_influenciadores()
 
     st.title("Dashboard de Campanhas")
-    st.markdown('<div class="sub">Visão geral das campanhas ativas da Agência Zoy</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub">Central executiva de acompanhamento das campanhas da Agência Zoy</div>', unsafe_allow_html=True)
 
     total = len(campanhas_df)
-    ativas = len(campanhas_df[campanhas_df["status"] != "Finalizado"]) if total > 0 else 0
+    ativas = len(campanhas_df[~campanhas_df["status"].isin(["Finalizado", "Cancelado"])]) if total > 0 else 0
     finalizadas = len(campanhas_df[campanhas_df["status"] == "Finalizado"]) if total > 0 else 0
-    pendentes = len(campanhas_df[campanhas_df["status"].isin(["Conteúdo pendente", "Conteúdo em aprovação", "Relatório pendente"])]) if total > 0 else 0
+    canceladas = len(campanhas_df[campanhas_df["status"] == "Cancelado"]) if total > 0 else 0
     investimento = campanhas_df["valor"].sum() if total > 0 else 0
 
-    col1, col2, col3, col4, col5 = st.columns(5)
-    col1.metric("Campanhas totais", total)
-    col2.metric("Campanhas ativas", ativas)
-    col3.metric("Pendências", pendentes)
-    col4.metric("Finalizadas", finalizadas)
-    col5.metric("Investimento", formatar_moeda(investimento))
+    contratos_pendentes = len(influ_df[influ_df["status_contrato"] != "Assinado"]) if not influ_df.empty else 0
+    conteudos_pendentes = len(influ_df[influ_df["status_conteudo"].isin(["Pendente", "Recebido", "Em aprovação", "Ajuste solicitado"])]) if not influ_df.empty else 0
+    relatorios_pendentes = len(campanhas_df[campanhas_df["status"] == "Relatório Pendente"]) if total > 0 else 0
+
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Campanhas Ativas", ativas)
+    col2.metric("Investimento Total", formatar_moeda(investimento))
+    col3.metric("Influenciadores Ativos", len(influ_df))
+
+    col4, col5, col6 = st.columns(3)
+    col4.metric("Contratos Pendentes", contratos_pendentes)
+    col5.metric("Conteúdos Pendentes", conteudos_pendentes)
+    col6.metric("Relatórios Pendentes", relatorios_pendentes)
 
     st.markdown("---")
 
-    col_a, col_b = st.columns([2, 1])
+    st.subheader("Visão geral por status")
+
+    if campanhas_df.empty:
+        st.info("Nenhuma campanha cadastrada ainda.")
+    else:
+        status_counts = campanhas_df["status"].value_counts().to_dict()
+        cols = st.columns(4)
+
+        for idx, status in enumerate(STATUS_CAMPANHA):
+            qtd = status_counts.get(status, 0)
+            with cols[idx % 4]:
+                st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+                st.markdown(f'<div class="card-title">{status}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="big-number">{qtd}</div>', unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+
+    col_a, col_b = st.columns([1, 1])
 
     with col_a:
-        st.subheader("Campanhas recentes")
+        st.subheader("Visão geral por atendimento")
 
-        if not campanhas_df.empty:
-            df_view = campanhas_df[["cliente", "campanha", "responsavel", "valor", "inicio", "fim", "status"]].copy()
-            df_view["valor"] = df_view["valor"].apply(formatar_moeda)
-            st.dataframe(df_view, use_container_width=True, hide_index=True)
+        if campanhas_df.empty or "responsavel" not in campanhas_df.columns:
+            st.info("Nenhum responsável cadastrado ainda.")
         else:
-            st.info("Nenhuma campanha cadastrada ainda.")
+            resp_df = (
+                campanhas_df[campanhas_df["responsavel"].fillna("") != ""]
+                .groupby("responsavel")
+                .size()
+                .reset_index(name="campanhas")
+                .sort_values("campanhas", ascending=False)
+            )
+
+            if resp_df.empty:
+                st.info("Nenhum responsável cadastrado ainda.")
+            else:
+                for _, r in resp_df.iterrows():
+                    st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="card-title">{r["responsavel"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="big-number">{int(r["campanhas"])}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="small-muted">campanha(s) sob responsabilidade</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
 
     with col_b:
-        st.subheader("Alertas")
+        st.subheader("Campanhas críticas")
 
-        if pendentes > 0:
-            st.warning(f"{pendentes} campanha(s) precisam de atenção.")
+        if campanhas_df.empty:
+            st.info("Nenhuma campanha cadastrada.")
         else:
-            st.success("Nenhum alerta no momento.")
+            criticas = campanhas_df[campanhas_df["status"].isin([
+                "Conteúdo Pendente",
+                "Conteúdo em Aprovação",
+                "Ajuste Solicitado",
+                "Relatório Pendente"
+            ])]
 
-        st.markdown('<div class="card">', unsafe_allow_html=True)
-        st.markdown("**Resumo rápido**")
-        st.write(f"Campanhas ativas: {ativas}")
-        st.write(f"Campanhas finalizadas: {finalizadas}")
-        st.write(f"Influenciadores cadastrados: {len(influ_df)}")
-        st.markdown('</div>', unsafe_allow_html=True)
+            if criticas.empty:
+                st.success("Nenhuma campanha crítica no momento.")
+            else:
+                for _, c in criticas.iterrows():
+                    st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="card-title">{c["status"]}</div>', unsafe_allow_html=True)
+                    st.write(f"**{c['campanha']}**")
+                    st.write(f"{c['cliente']} · {c['responsavel']}")
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown("---")
+    st.subheader("Campanhas recentes")
+
+    if not campanhas_df.empty:
+        df_view = campanhas_df[["cliente", "campanha", "responsavel", "valor", "inicio", "fim", "status"]].copy()
+        df_view["valor"] = df_view["valor"].apply(formatar_moeda)
+        st.dataframe(df_view, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhuma campanha cadastrada ainda.")
 
 
 # =========================
@@ -492,11 +603,9 @@ elif pagina == "Campanhas":
                 if squad_df.empty:
                     st.info("Nenhum influenciador cadastrado nesta campanha ainda.")
                 else:
-                    st.dataframe(
-                        squad_df[["nome", "arroba", "valor", "entregaveis", "postagem", "status_conteudo", "status_contrato"]],
-                        use_container_width=True,
-                        hide_index=True
-                    )
+                    squad_view = squad_df[["nome", "arroba", "valor", "entregaveis", "postagem", "status_conteudo", "status_contrato"]].copy()
+                    squad_view["valor"] = squad_view["valor"].apply(formatar_moeda)
+                    st.dataframe(squad_view, use_container_width=True, hide_index=True)
 
             st.markdown('</div>', unsafe_allow_html=True)
 
@@ -524,7 +633,7 @@ elif pagina == "Detalhe da Campanha":
         campanha = campanhas_df[campanhas_df["id"] == campanha_id].iloc[0]
         squad_df = buscar_influenciadores_por_campanha(campanha_id)
 
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.markdown('<div class="card-purple">', unsafe_allow_html=True)
 
         col1, col2 = st.columns([1.4, 1])
 
@@ -622,14 +731,14 @@ elif pagina == "Detalhe da Campanha":
             st.subheader("Checklist operacional")
 
             checklist = [
-                ("Briefing recebido", campanha["progresso"] >= 10),
-                ("Mapeamento", campanha["progresso"] >= 20),
-                ("Casting enviado", campanha["progresso"] >= 30),
-                ("Negociação", campanha["progresso"] >= 40),
-                ("Contrato enviado", campanha["progresso"] >= 50),
-                ("Conteúdo", campanha["progresso"] >= 70),
-                ("Postagem", campanha["progresso"] >= 90),
-                ("Relatório", campanha["progresso"] >= 95),
+                ("Mapeamento", campanha["progresso"] >= 10),
+                ("Atendimento Iniciado", campanha["progresso"] >= 20),
+                ("Contrato Enviado", campanha["progresso"] >= 35),
+                ("Conteúdo Pendente", campanha["progresso"] >= 50),
+                ("Conteúdo em Aprovação", campanha["progresso"] >= 65),
+                ("Aprovado", campanha["progresso"] >= 80),
+                ("Postado", campanha["progresso"] >= 90),
+                ("Relatório Pendente", campanha["progresso"] >= 95),
                 ("Finalizado", campanha["progresso"] >= 100),
             ]
 
@@ -700,8 +809,9 @@ elif pagina == "Influenciadores":
         if influ_df.empty:
             st.info("Nenhum influenciador cadastrado ainda.")
         else:
-            influ_df["valor"] = influ_df["valor"].apply(formatar_moeda)
-            st.dataframe(influ_df, use_container_width=True, hide_index=True)
+            influ_view = influ_df.copy()
+            influ_view["valor"] = influ_view["valor"].apply(formatar_moeda)
+            st.dataframe(influ_view, use_container_width=True, hide_index=True)
 
 
 # =========================
@@ -721,7 +831,7 @@ elif pagina == "Relatórios":
         for _, c in campanhas_df.iterrows():
             if c["status"] == "Finalizado":
                 status_relatorio = "Finalizado"
-            elif c["status"] == "Relatório pendente":
+            elif c["status"] == "Relatório Pendente":
                 status_relatorio = "Pendente"
             else:
                 status_relatorio = "Não iniciado"
