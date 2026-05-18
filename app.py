@@ -8,7 +8,8 @@ DB_NAME = "zoy_campanhas.db"
 st.set_page_config(
     page_title="Campaign OS",
     page_icon="🟣",
-    layout="wide"
+    layout="wide",
+    initial_sidebar_state="expanded"
 )
 
 st.markdown("""
