@@ -205,12 +205,24 @@ div[data-testid="stDataFrame"] {
     margin-bottom: 28px;
 }
 
-.alert-card {
-    background: linear-gradient(145deg, rgba(168,85,247,0.10), #050505);
-    border: 1px solid rgba(168,85,247,0.32);
-    border-radius: 18px;
-    padding: 18px;
-    margin-bottom: 12px;
+div[role="radiogroup"] label > div:first-child {
+    display: none !important;
+}
+
+div[role="radiogroup"] label {
+    background: transparent !important;
+    border-radius: 14px !important;
+    padding: 12px 14px !important;
+    margin-bottom: 4px !important;
+}
+
+div[role="radiogroup"] label:hover {
+    background: rgba(168,85,247,0.14) !important;
+}
+
+div[role="radiogroup"] label:has(input:checked) {
+    background: linear-gradient(90deg, rgba(124,58,237,0.38), rgba(168,85,247,0.12)) !important;
+    border-left: 4px solid #A855F7 !important;
 }
 
 </style>
@@ -261,6 +273,12 @@ def criar_tabelas():
     )
     """)
 
+    cursor.execute("""
+    UPDATE campanhas
+    SET status = 'Mapeamento', progresso = 10
+    WHERE status = 'Briefing recebido'
+    """)
+
     conn.commit()
     conn.close()
 
@@ -277,6 +295,24 @@ STATUS_CAMPANHA = [
     "Relatório Pendente",
     "Finalizado",
     "Cancelado"
+]
+
+
+STATUS_CONTEUDO = [
+    "Pendente",
+    "Recebido",
+    "Em aprovação",
+    "Ajuste solicitado",
+    "Aprovado",
+    "Postado",
+    "Finalizado"
+]
+
+
+STATUS_CONTRATO = [
+    "Não enviado",
+    "Enviado",
+    "Assinado"
 ]
 
 
@@ -310,8 +346,10 @@ def salvar_campanha(cliente, campanha, responsavel, valor, inicio, fim, status, 
         calcular_progresso(status), drive, briefing, observacoes
     ))
 
+    campanha_id = cursor.lastrowid
     conn.commit()
     conn.close()
+    return campanha_id
 
 
 def buscar_campanhas():
@@ -398,7 +436,7 @@ criar_tabelas()
 # SIDEBAR
 # =========================
 st.sidebar.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
-st.sidebar.image("logo_zoy.png", width=110)
+st.sidebar.image("logo_zoy.png", width=115)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 st.sidebar.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
 
@@ -409,13 +447,13 @@ pagina = st.sidebar.radio(
         "Nova Campanha",
         "Campanhas",
         "Detalhe da Campanha",
-        "Influenciadores",
+        "Squads",
         "Relatórios"
     ]
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Zoy Campaign OS · V4")
+st.sidebar.caption("Zoy Campaign OS · V5")
 
 
 # =========================
@@ -430,9 +468,7 @@ if pagina == "Dashboard":
 
     total = len(campanhas_df)
     ativas = len(campanhas_df[~campanhas_df["status"].isin(["Finalizado", "Cancelado"])]) if total > 0 else 0
-    finalizadas = len(campanhas_df[campanhas_df["status"] == "Finalizado"]) if total > 0 else 0
     investimento = campanhas_df["valor"].sum() if total > 0 else 0
-
     contratos_pendentes = len(influ_df[influ_df["status_contrato"] != "Assinado"]) if not influ_df.empty else 0
     conteudos_pendentes = len(influ_df[influ_df["status_conteudo"].isin(["Pendente", "Recebido", "Em aprovação", "Ajuste solicitado"])]) if not influ_df.empty else 0
     relatorios_pendentes = len(campanhas_df[campanhas_df["status"] == "Relatório Pendente"]) if total > 0 else 0
@@ -449,7 +485,7 @@ if pagina == "Dashboard":
 
     st.markdown("---")
 
-    col_status, col_atendimento = st.columns([1.2, 1])
+    col_status, col_atendimento = st.columns([1, 1])
 
     with col_status:
         st.subheader("Visão geral por status")
@@ -478,25 +514,25 @@ if pagina == "Dashboard":
 
             fig.update_traces(
                 textposition="inside",
-                textinfo="percent+label",
+                textinfo="percent",
                 marker=dict(line=dict(color="#000000", width=2))
             )
 
             fig.update_layout(
                 paper_bgcolor="rgba(0,0,0,0)",
                 plot_bgcolor="rgba(0,0,0,0)",
-                font=dict(color="#F8FAFC", size=13),
+                font=dict(color="#F8FAFC", size=12),
                 showlegend=True,
                 legend=dict(
                     orientation="v",
                     yanchor="middle",
                     y=0.5,
                     xanchor="left",
-                    x=1.02,
-                    font=dict(color="#E2E8F0")
+                    x=0.95,
+                    font=dict(color="#E2E8F0", size=11)
                 ),
-                margin=dict(l=0, r=0, t=10, b=10),
-                height=420
+                margin=dict(l=0, r=0, t=0, b=0),
+                height=280
             )
 
             st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -528,41 +564,14 @@ if pagina == "Dashboard":
                     st.markdown('</div>', unsafe_allow_html=True)
 
     st.markdown("---")
+    st.subheader("Campanhas recentes")
 
-    col_criticas, col_recentes = st.columns([1, 1.4])
-
-    with col_criticas:
-        st.subheader("Campanhas críticas")
-
-        if campanhas_df.empty:
-            st.info("Nenhuma campanha cadastrada.")
-        else:
-            criticas = campanhas_df[campanhas_df["status"].isin([
-                "Conteúdo Pendente",
-                "Conteúdo em Aprovação",
-                "Ajuste Solicitado",
-                "Relatório Pendente"
-            ])]
-
-            if criticas.empty:
-                st.success("Nenhuma campanha crítica no momento.")
-            else:
-                for _, c in criticas.iterrows():
-                    st.markdown('<div class="alert-card">', unsafe_allow_html=True)
-                    st.markdown(f'<div class="card-title">{c["status"]}</div>', unsafe_allow_html=True)
-                    st.write(f"**{c['campanha']}**")
-                    st.write(f"{c['cliente']} · {c['responsavel']}")
-                    st.markdown('</div>', unsafe_allow_html=True)
-
-    with col_recentes:
-        st.subheader("Campanhas recentes")
-
-        if not campanhas_df.empty:
-            df_view = campanhas_df[["cliente", "campanha", "responsavel", "valor", "inicio", "fim", "status"]].copy()
-            df_view["valor"] = df_view["valor"].apply(formatar_moeda)
-            st.dataframe(df_view, use_container_width=True, hide_index=True)
-        else:
-            st.info("Nenhuma campanha cadastrada ainda.")
+    if not campanhas_df.empty:
+        df_view = campanhas_df[["cliente", "campanha", "responsavel", "valor", "inicio", "fim", "status"]].copy()
+        df_view["valor"] = df_view["valor"].apply(formatar_moeda)
+        st.dataframe(df_view, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhuma campanha cadastrada ainda.")
 
 
 # =========================
@@ -570,9 +579,11 @@ if pagina == "Dashboard":
 # =========================
 elif pagina == "Nova Campanha":
     st.title("Nova Campanha")
-    st.markdown('<div class="sub">Cadastre uma campanha nova para acompanhamento interno</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub">Cadastre uma campanha nova e já monte o squad inicial</div>', unsafe_allow_html=True)
 
     with st.form("form_campanha"):
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+
         col1, col2 = st.columns(2)
 
         with col1:
@@ -590,13 +601,99 @@ elif pagina == "Nova Campanha":
         briefing = st.text_area("Resumo do briefing")
         observacoes = st.text_area("Observações internas")
 
+        st.markdown("---")
+        st.subheader("Influenciadores da campanha")
+
+        tipo_campanha = st.radio(
+            "Essa campanha é individual ou squad?",
+            ["Individual", "Squad"],
+            horizontal=True
+        )
+
+        qtd_influenciadores = 1
+        if tipo_campanha == "Squad":
+            qtd_influenciadores = st.number_input(
+                "Quantidade de influenciadores no squad",
+                min_value=1,
+                max_value=20,
+                value=2,
+                step=1
+            )
+
+        influenciadores_temp = []
+
+        for i in range(int(qtd_influenciadores)):
+            st.markdown(f"#### Influenciador {i + 1}")
+
+            col_a, col_b, col_c = st.columns(3)
+
+            with col_a:
+                nome_influ = st.text_input(f"Nome do influenciador {i + 1}", key=f"nome_influ_{i}")
+                arroba_influ = st.text_input(f"@ do influenciador {i + 1}", key=f"arroba_influ_{i}")
+
+            with col_b:
+                valor_influ = st.number_input(f"Cachê {i + 1}", min_value=0.0, step=100.0, key=f"valor_influ_{i}")
+                entregaveis_influ = st.text_input(
+                    f"Entregáveis {i + 1}",
+                    placeholder="Ex: 1 Reels + 2 combos de stories",
+                    key=f"entregaveis_influ_{i}"
+                )
+
+            with col_c:
+                postagem_influ = st.date_input(f"Data prevista {i + 1}", value=date.today(), key=f"postagem_influ_{i}")
+                status_contrato_influ = st.selectbox(
+                    f"Status contrato {i + 1}",
+                    STATUS_CONTRATO,
+                    key=f"contrato_influ_{i}"
+                )
+                status_conteudo_influ = st.selectbox(
+                    f"Status conteúdo {i + 1}",
+                    STATUS_CONTEUDO,
+                    key=f"conteudo_influ_{i}"
+                )
+
+            obs_influ = st.text_area(f"Observações do influenciador {i + 1}", key=f"obs_influ_{i}")
+
+            influenciadores_temp.append({
+                "nome": nome_influ,
+                "arroba": arroba_influ,
+                "valor": valor_influ,
+                "entregaveis": entregaveis_influ,
+                "postagem": postagem_influ,
+                "status_contrato": status_contrato_influ,
+                "status_conteudo": status_conteudo_influ,
+                "observacoes": obs_influ
+            })
+
+            st.markdown("---")
+
         salvar = st.form_submit_button("Salvar campanha")
+
+        st.markdown('</div>', unsafe_allow_html=True)
 
         if salvar:
             if not cliente or not campanha:
                 st.error("Preencha pelo menos Cliente e Nome da campanha.")
             else:
-                salvar_campanha(cliente, campanha, responsavel, valor, inicio, fim, status, drive, briefing, observacoes)
+                campanha_id = salvar_campanha(
+                    cliente, campanha, responsavel, valor, inicio, fim,
+                    status, drive, briefing, observacoes
+                )
+
+                for influ in influenciadores_temp:
+                    if influ["nome"]:
+                        salvar_influenciador(
+                            campanha_id,
+                            influ["nome"],
+                            influ["arroba"],
+                            influ["valor"],
+                            influ["entregaveis"],
+                            influ["postagem"],
+                            influ["status_conteudo"],
+                            influ["status_contrato"],
+                            influ["observacoes"]
+                        )
+
                 st.success("Campanha cadastrada com sucesso.")
 
 
@@ -726,14 +823,8 @@ elif pagina == "Detalhe da Campanha":
                     valor = st.number_input("Cachê", min_value=0.0, step=100.0)
                     entregaveis = st.text_input("Entregáveis", placeholder="Ex: 1 Reels + 2 combos de stories")
                     postagem = st.date_input("Data prevista de postagem")
-                    status_conteudo = st.selectbox(
-                        "Status do conteúdo",
-                        ["Pendente", "Recebido", "Em aprovação", "Ajuste solicitado", "Aprovado", "Postado", "Finalizado"]
-                    )
-                    status_contrato = st.selectbox(
-                        "Status do contrato",
-                        ["Não enviado", "Enviado", "Assinado"]
-                    )
+                    status_conteudo = st.selectbox("Status do conteúdo", STATUS_CONTEUDO)
+                    status_contrato = st.selectbox("Status do contrato", STATUS_CONTRATO)
                     observacoes = st.text_area("Observações")
 
                     salvar = st.form_submit_button("Salvar influenciador")
@@ -788,12 +879,12 @@ elif pagina == "Detalhe da Campanha":
 
 
 # =========================
-# INFLUENCIADORES
+# SQUADS
 # =========================
-elif pagina == "Influenciadores":
+elif pagina == "Squads":
     campanhas_df = buscar_campanhas()
 
-    st.title("Influenciadores")
+    st.title("Squads")
     st.markdown('<div class="sub">Cadastre influenciadores por campanha e acompanhe entregas</div>', unsafe_allow_html=True)
 
     if campanhas_df.empty:
@@ -816,14 +907,8 @@ elif pagina == "Influenciadores":
             with col2:
                 entregaveis = st.text_input("Entregáveis", placeholder="Ex: 1 Reels + 2 combos de stories")
                 postagem = st.date_input("Data prevista de postagem")
-                status_conteudo = st.selectbox(
-                    "Status do conteúdo",
-                    ["Pendente", "Recebido", "Em aprovação", "Ajuste solicitado", "Aprovado", "Postado", "Finalizado"]
-                )
-                status_contrato = st.selectbox(
-                    "Status do contrato",
-                    ["Não enviado", "Enviado", "Assinado"]
-                )
+                status_conteudo = st.selectbox("Status do conteúdo", STATUS_CONTEUDO)
+                status_contrato = st.selectbox("Status do contrato", STATUS_CONTRATO)
 
             observacoes = st.text_area("Observações")
 
