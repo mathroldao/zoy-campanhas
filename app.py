@@ -1,4 +1,6 @@
 import sqlite3
+from urllib.parse import quote
+
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -17,10 +19,14 @@ st.set_page_config(
 # =========================
 st.markdown("""
 <style>
-header[data-testid="stHeader"],
+header[data-testid="stHeader"] { 
+    display: none !important; 
+}
+
 [data-testid="collapsedControl"],
 [data-testid="stSidebarCollapseButton"],
-button[kind="header"] {
+button[kind="header"],
+section[data-testid="stSidebar"] button[kind="header"] {
     display: none !important;
 }
 
@@ -30,10 +36,10 @@ button[kind="header"] {
 }
 
 .main .block-container {
-    padding-top: 2rem;
-    padding-left: 2.5rem;
-    padding-right: 2.5rem;
-    max-width: 1450px;
+    padding-top: 3rem;
+    padding-left: 4rem;
+    padding-right: 4rem;
+    max-width: 1650px;
 }
 
 section[data-testid="stSidebar"] {
@@ -41,8 +47,7 @@ section[data-testid="stSidebar"] {
     border-right: 1px solid rgba(17,24,39,0.10);
     display: block !important;
     visibility: visible !important;
-    min-width: 245px !important;
-    max-width: 245px !important;
+    min-width: 290px !important;
 }
 
 section[data-testid="stSidebar"] * {
@@ -51,15 +56,6 @@ section[data-testid="stSidebar"] * {
 
 h1, h2, h3, h4, h5, h6, p, span, label {
     color: #111827 !important;
-}
-
-h1 {
-    font-size: 42px !important;
-    line-height: 1.1;
-}
-
-h2 {
-    font-size: 30px !important;
 }
 
 label,
@@ -74,14 +70,14 @@ label,
 [data-testid="stMetric"] {
     background: #FFFFFF;
     border: 1px solid rgba(124,58,237,0.18);
-    padding: 18px;
-    border-radius: 20px;
-    box-shadow: 0 8px 22px rgba(17,24,39,0.05);
+    padding: 22px;
+    border-radius: 22px;
+    box-shadow: 0 10px 30px rgba(17,24,39,0.05);
 }
 
 [data-testid="stMetricValue"] {
     color: #111827 !important;
-    font-size: 26px !important;
+    font-size: 29px !important;
 }
 
 [data-testid="stMetricLabel"] {
@@ -96,7 +92,7 @@ div[data-testid="stLinkButton"] a {
     color: white !important;
     border: none !important;
     border-radius: 14px !important;
-    padding: 10px 18px !important;
+    padding: 10px 22px !important;
     font-weight: 800 !important;
     text-decoration: none !important;
 }
@@ -106,58 +102,38 @@ div[data-testid="stForm"] button:hover,
 div[data-testid="stLinkButton"] a:hover {
     background: linear-gradient(90deg, #6D28D9, #9333EA) !important;
     color: white !important;
+    border: none !important;
 }
 
 div[data-testid="stLinkButton"] a p {
     color: white !important;
 }
 
-section[data-testid="stSidebar"] .stButton button {
-    background: transparent !important;
-    color: #111827 !important;
-    border: 0 !important;
-    border-left: 4px solid transparent !important;
-    border-radius: 14px !important;
-    padding: 11px 12px !important;
-    font-size: 15px !important;
-    font-weight: 700 !important;
-    text-align: left !important;
-    justify-content: flex-start !important;
-    box-shadow: none !important;
-    width: 100% !important;
-}
-
-section[data-testid="stSidebar"] .stButton button:hover {
-    background: rgba(168,85,247,0.10) !important;
-    color: #7C3AED !important;
-    border-left: 4px solid #7C3AED !important;
-}
-
 .card {
     background: #FFFFFF;
     border: 1px solid rgba(17,24,39,0.10);
-    border-radius: 22px;
-    padding: 22px;
-    margin-bottom: 16px;
-    box-shadow: 0 8px 22px rgba(17,24,39,0.05);
+    border-radius: 24px;
+    padding: 26px;
+    margin-bottom: 18px;
+    box-shadow: 0 10px 30px rgba(17,24,39,0.05);
 }
 
 .card-purple {
     background: linear-gradient(145deg, rgba(168,85,247,0.10), #FFFFFF);
     border: 1px solid rgba(168,85,247,0.25);
-    border-radius: 22px;
-    padding: 22px;
-    margin-bottom: 16px;
-    box-shadow: 0 8px 22px rgba(17,24,39,0.05);
+    border-radius: 24px;
+    padding: 24px;
+    margin-bottom: 18px;
+    box-shadow: 0 10px 30px rgba(17,24,39,0.05);
 }
 
 .mini-card {
     background: #FFFFFF;
     border: 1px solid rgba(17,24,39,0.10);
-    border-radius: 16px;
-    padding: 16px;
-    margin-bottom: 10px;
-    box-shadow: 0 6px 18px rgba(17,24,39,0.04);
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 12px;
+    box-shadow: 0 8px 22px rgba(17,24,39,0.04);
 }
 
 .card:empty,
@@ -168,8 +144,8 @@ section[data-testid="stSidebar"] .stButton button:hover {
 
 .sub {
     color: #6B7280 !important;
-    margin-top: -8px;
-    margin-bottom: 24px;
+    margin-top: -10px;
+    margin-bottom: 28px;
 }
 
 .purple {
@@ -177,8 +153,12 @@ section[data-testid="stSidebar"] .stButton button:hover {
 }
 
 .info-line {
-    font-size: 16px;
-    margin-bottom: 12px;
+    font-size: 17px;
+    margin-bottom: 15px;
+}
+
+hr {
+    border-color: rgba(17,24,39,0.08);
 }
 
 .soft-divider {
@@ -190,7 +170,7 @@ section[data-testid="stSidebar"] .stButton button:hover {
         rgba(168,85,247,0.35),
         rgba(124,58,237,0)
     );
-    margin: 26px 0;
+    margin: 32px 0;
     border-radius: 999px;
 }
 
@@ -237,7 +217,7 @@ div[data-baseweb="input"] * {
 }
 
 .value-big {
-    font-size: 32px;
+    font-size: 34px;
     font-weight: 950;
     color: #7C3AED !important;
 }
@@ -248,7 +228,7 @@ div[data-baseweb="input"] * {
 }
 
 .big-number {
-    font-size: 36px;
+    font-size: 42px;
     font-weight: 950;
     color: #111827 !important;
     line-height: 1;
@@ -256,28 +236,103 @@ div[data-baseweb="input"] * {
 
 .card-title {
     color: #7C3AED !important;
-    font-size: 13px;
+    font-size: 14px;
     font-weight: 800;
     text-transform: uppercase;
     letter-spacing: .7px;
 }
 
+.danger-note {
+    color: #DC2626 !important;
+    font-size: 13px;
+}
+
+/* =========================
+   SIDEBAR CUSTOM
+========================= */
+.sidebar-logo-wrapper {
+    margin-top: 10px;
+    margin-bottom: 20px;
+}
+
 .sidebar-caption {
     color: #111827 !important;
-    font-size: 14px;
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 18px;
+}
+
+.sidebar-cta {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    width: 100%;
+    padding: 14px 18px;
+    border-radius: 16px;
+    background: linear-gradient(90deg, #7C3AED, #A855F7);
+    color: #FFFFFF !important;
     font-weight: 800;
-    margin-bottom: 14px;
+    font-size: 16px;
+    text-decoration: none !important;
+    box-shadow: 0 12px 24px rgba(124,58,237,0.22);
+    margin: 12px 0 28px 0;
+}
+
+.sidebar-cta:hover {
+    background: linear-gradient(90deg, #6D28D9, #9333EA);
+    color: #FFFFFF !important;
+    text-decoration: none !important;
+}
+
+.sidebar-menu-title {
+    font-size: 15px;
+    font-weight: 700;
+    color: #111827 !important;
+    margin-bottom: 10px;
+}
+
+.nav-item {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    padding: 13px 16px;
+    margin: 7px 0;
+    border-radius: 16px;
+    color: #111827 !important;
+    font-size: 16px;
+    font-weight: 650;
+    text-decoration: none !important;
+    transition: all .18s ease;
+    border-left: 4px solid transparent;
+}
+
+.nav-item svg {
+    width: 21px;
+    height: 21px;
+    stroke: #111827;
+    stroke-width: 2;
+}
+
+.nav-item:hover {
+    background: rgba(168,85,247,0.07);
+    text-decoration: none !important;
+}
+
+.nav-item.active {
+    background: rgba(168,85,247,0.13);
+    color: #7C3AED !important;
+    border-left: 4px solid #7C3AED;
+}
+
+.nav-item.active svg {
+    stroke: #7C3AED;
 }
 
 .sidebar-version {
     color: #9CA3AF !important;
     font-size: 12px;
-    margin-top: 24px;
-}
-
-.danger-note {
-    color: #DC2626 !important;
-    font-size: 13px;
+    margin-top: 26px;
 }
 </style>
 """, unsafe_allow_html=True)
@@ -290,16 +345,6 @@ def conectar():
     return sqlite3.connect(DB_NAME, check_same_thread=False)
 
 
-def coluna_existe(cursor, tabela, coluna):
-    cursor.execute(f"PRAGMA table_info({tabela})")
-    return coluna in [row[1] for row in cursor.fetchall()]
-
-
-def adicionar_coluna(cursor, tabela, coluna, tipo):
-    if not coluna_existe(cursor, tabela, coluna):
-        cursor.execute(f"ALTER TABLE {tabela} ADD COLUMN {coluna} {tipo}")
-
-
 def criar_tabelas():
     conn = conectar()
     cursor = conn.cursor()
@@ -308,13 +353,11 @@ def criar_tabelas():
     CREATE TABLE IF NOT EXISTS campanhas (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         cliente TEXT,
-        marca TEXT,
         campanha TEXT,
         responsavel TEXT,
         valor REAL,
         inicio TEXT,
         fim TEXT,
-        prazo_pagamento TEXT,
         status TEXT,
         progresso INTEGER,
         drive TEXT,
@@ -346,17 +389,21 @@ def criar_tabelas():
     )
     """)
 
-    adicionar_coluna(cursor, "campanhas", "marca", "TEXT")
-    adicionar_coluna(cursor, "campanhas", "prazo_pagamento", "TEXT")
-    adicionar_coluna(cursor, "campanhas", "fim", "TEXT")
-    adicionar_coluna(cursor, "campanhas", "progresso", "INTEGER")
-    adicionar_coluna(cursor, "campanhas", "drive", "TEXT")
-    adicionar_coluna(cursor, "campanhas", "briefing", "TEXT")
-    adicionar_coluna(cursor, "campanhas", "observacoes", "TEXT")
+    try:
+        cursor.execute("ALTER TABLE campanhas ADD COLUMN prazo_pagamento TEXT")
+    except sqlite3.OperationalError:
+        pass
 
-    adicionar_coluna(cursor, "influenciadores", "nome", "TEXT")
-    adicionar_coluna(cursor, "influenciadores", "postagem", "TEXT")
-    adicionar_coluna(cursor, "influenciadores", "observacoes", "TEXT")
+    try:
+        cursor.execute("ALTER TABLE campanhas ADD COLUMN marca TEXT")
+    except sqlite3.OperationalError:
+        pass
+
+    cursor.execute("""
+    UPDATE campanhas
+    SET status = 'Mapeamento', progresso = 10
+    WHERE status = 'Briefing recebido'
+    """)
 
     cursor.execute("""
     INSERT OR IGNORE INTO influenciadores_base (arroba)
@@ -417,10 +464,7 @@ def calcular_progresso(status):
 
 
 def formatar_moeda(valor):
-    try:
-        return f"R$ {float(valor):,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
-    except:
-        return "R$ 0,00"
+    return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
 def normalizar_arroba(arroba):
@@ -449,20 +493,35 @@ def buscar_influenciadores_base():
     return df["arroba"].tolist() if not df.empty else []
 
 
+def salvar_campanha(cliente, marca, campanha, responsavel, valor, inicio, prazo_pagamento, status, drive, briefing, observacoes):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    INSERT INTO campanhas (
+        cliente, marca, campanha, responsavel, valor, inicio, fim, prazo_pagamento,
+        status, progresso, drive, briefing, observacoes
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        cliente, marca, campanha, responsavel, valor, inicio, "", prazo_pagamento,
+        status, calcular_progresso(status), drive, briefing, observacoes
+    ))
+
+    campanha_id = cursor.lastrowid
+    conn.commit()
+    conn.close()
+    return campanha_id
+
+
 def buscar_campanhas():
     conn = conectar()
     df = pd.read_sql_query("SELECT * FROM campanhas ORDER BY id DESC", conn)
     conn.close()
 
-    colunas = [
-        "id", "cliente", "marca", "campanha", "responsavel", "valor",
-        "inicio", "fim", "prazo_pagamento", "status", "progresso",
-        "drive", "briefing", "observacoes"
-    ]
-
-    for col in colunas:
-        if col not in df.columns:
-            df[col] = ""
+    if "prazo_pagamento" not in df.columns:
+        df["prazo_pagamento"] = ""
+    if "marca" not in df.columns:
+        df["marca"] = ""
 
     return df
 
@@ -492,15 +551,8 @@ def buscar_influenciadores():
     """, conn)
     conn.close()
 
-    colunas = [
-        "id", "campanha_id", "campanha", "cliente", "marca", "responsavel",
-        "prazo_pagamento", "nome", "arroba", "valor", "entregaveis",
-        "postagem", "status_conteudo", "status_contrato", "observacoes"
-    ]
-
-    for col in colunas:
-        if col not in df.columns:
-            df[col] = ""
+    if "marca" not in df.columns:
+        df["marca"] = ""
 
     return df
 
@@ -513,32 +565,7 @@ def buscar_influenciadores_por_campanha(campanha_id):
         ORDER BY id DESC
     """, conn, params=(campanha_id,))
     conn.close()
-
-    for col in ["id", "campanha_id", "nome", "arroba", "valor", "entregaveis", "postagem", "status_conteudo", "status_contrato", "observacoes"]:
-        if col not in df.columns:
-            df[col] = ""
-
     return df
-
-
-def salvar_campanha(cliente, marca, campanha, responsavel, valor, inicio, prazo_pagamento, status, drive, briefing, observacoes):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    INSERT INTO campanhas (
-        cliente, marca, campanha, responsavel, valor, inicio, fim, prazo_pagamento,
-        status, progresso, drive, briefing, observacoes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        cliente, marca, campanha, responsavel, valor, inicio, "", prazo_pagamento,
-        status, calcular_progresso(status), drive, briefing, observacoes
-    ))
-
-    campanha_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return campanha_id
 
 
 def salvar_influenciador(campanha_id, arroba, valor, entregaveis, status_conteudo, status_contrato, observacoes):
@@ -567,7 +594,7 @@ def atualizar_status_campanha(campanha_id, novo_status):
     cursor = conn.cursor()
 
     cursor.execute("""
-    UPDATE campanhas
+    UPDATE campanhas 
     SET status = ?, progresso = ?
     WHERE id = ?
     """, (novo_status, calcular_progresso(novo_status), campanha_id))
@@ -619,58 +646,94 @@ criar_tabelas()
 
 
 # =========================
-# ESTADO / MENU
+# PAGE ROUTING
 # =========================
-if "pagina" not in st.session_state:
-    st.session_state.pagina = "Dashboard"
+PAGINAS_VALIDAS = [
+    "Dashboard",
+    "Nova Campanha",
+    "Campanhas",
+    "Detalhe da Campanha",
+    "Squads",
+    "Contratos",
+    "Relatórios"
+]
 
+pagina_query = st.query_params.get("page", "Dashboard")
+if isinstance(pagina_query, list):
+    pagina_query = pagina_query[0]
+
+pagina = pagina_query if pagina_query in PAGINAS_VALIDAS else "Dashboard"
+
+
+# =========================
+# SIDEBAR
+# =========================
+def icon_svg(nome):
+    icons = {
+        "dashboard": """
+        <svg viewBox="0 0 24 24" fill="none"><rect x="3" y="3" width="7" height="7" rx="1"></rect><rect x="14" y="3" width="7" height="7" rx="1"></rect><rect x="3" y="14" width="7" height="7" rx="1"></rect><rect x="14" y="14" width="7" height="7" rx="1"></rect></svg>
+        """,
+        "folder": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 7a2 2 0 0 1 2-2h5l2 2h7a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V7z"></path></svg>
+        """,
+        "file": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 13h8"></path><path d="M8 17h6"></path></svg>
+        """,
+        "users": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M17 21v-2a4 4 0 0 0-4-4H7a4 4 0 0 0-4 4v2"></path><circle cx="10" cy="7" r="4"></circle><path d="M21 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
+        """,
+        "contract": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><path d="M14 2v6h6"></path><path d="M8 12h8"></path><path d="M8 16h8"></path><path d="M8 20h4"></path></svg>
+        """,
+        "chart": """
+        <svg viewBox="0 0 24 24" fill="none"><path d="M3 3v18h18"></path><rect x="7" y="12" width="3" height="6"></rect><rect x="12" y="8" width="3" height="10"></rect><rect x="17" y="5" width="3" height="13"></rect></svg>
+        """
+    }
+    return icons.get(nome, "")
+
+
+def nav_item(label, page, icon_name):
+    active = "active" if pagina == page else ""
+    return f"""
+    <a class="nav-item {active}" href="?page={quote(page)}">
+        {icon_svg(icon_name)}
+        <span>{label}</span>
+    </a>
+    """
+
+
+with st.sidebar:
+    st.markdown('<div class="sidebar-logo-wrapper">', unsafe_allow_html=True)
+    st.image("logo_zoy.png", width=118)
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
+
+    st.markdown(
+        f'<a class="sidebar-cta" href="?page={quote("Nova Campanha")}">+ Nova Campanha</a>',
+        unsafe_allow_html=True
+    )
+
+    st.markdown('<div class="sidebar-menu-title">Menu</div>', unsafe_allow_html=True)
+
+    st.markdown(nav_item("Dashboard", "Dashboard", "dashboard"), unsafe_allow_html=True)
+    st.markdown(nav_item("Campanhas", "Campanhas", "folder"), unsafe_allow_html=True)
+    st.markdown(nav_item("Detalhe da Campanha", "Detalhe da Campanha", "file"), unsafe_allow_html=True)
+    st.markdown(nav_item("Squads", "Squads", "users"), unsafe_allow_html=True)
+    st.markdown(nav_item("Contratos", "Contratos", "contract"), unsafe_allow_html=True)
+    st.markdown(nav_item("Relatórios", "Relatórios", "chart"), unsafe_allow_html=True)
+
+    st.markdown('<div class="sidebar-version">Zoy Campaign OS · V10</div>', unsafe_allow_html=True)
+
+
+# =========================
+# STATE
+# =========================
 if "qtd_influ_squad" not in st.session_state:
     st.session_state.qtd_influ_squad = 2
 
 if "tipo_campanha_atual" not in st.session_state:
     st.session_state.tipo_campanha_atual = "Individual"
-
-
-def ir_para(pagina):
-    st.session_state.pagina = pagina
-    st.rerun()
-
-
-with st.sidebar:
-    try:
-        st.image("logo_zoy.png", width=115)
-    except:
-        st.markdown("## ZOY")
-
-    st.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
-
-    if st.button("+ Nova Campanha", use_container_width=True):
-        ir_para("Nova Campanha")
-
-    st.markdown("### Menu")
-
-    if st.button("Dashboard", use_container_width=True):
-        ir_para("Dashboard")
-
-    if st.button("Campanhas", use_container_width=True):
-        ir_para("Campanhas")
-
-    if st.button("Detalhe da Campanha", use_container_width=True):
-        ir_para("Detalhe da Campanha")
-
-    if st.button("Squads", use_container_width=True):
-        ir_para("Squads")
-
-    if st.button("Contratos", use_container_width=True):
-        ir_para("Contratos")
-
-    if st.button("Relatórios", use_container_width=True):
-        ir_para("Relatórios")
-
-    st.markdown('<div class="sidebar-version">Zoy Campaign OS</div>', unsafe_allow_html=True)
-
-
-pagina = st.session_state.pagina
 
 
 def campo_influenciador(i, prefixo="nova"):
@@ -804,7 +867,7 @@ if pagina == "Dashboard":
                     font=dict(color="#111827", size=11)
                 ),
                 margin=dict(l=0, r=0, t=0, b=0),
-                height=260
+                height=280
             )
 
             st.markdown('<div class="card">', unsafe_allow_html=True)
@@ -814,7 +877,7 @@ if pagina == "Dashboard":
     with col_atendimento:
         st.subheader("Visão geral por atendimento")
 
-        if campanhas_df.empty:
+        if campanhas_df.empty or "responsavel" not in campanhas_df.columns:
             st.info("Nenhum responsável cadastrado ainda.")
         else:
             resp_df = (
@@ -898,16 +961,16 @@ elif pagina == "Nova Campanha":
         st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
 
     if tipo_campanha == "Squad":
-        col_add, col_remove, _ = st.columns([1.3, 1.2, 4])
+        col_add, col_remove, col_space = st.columns([1.2, 1.2, 4])
 
         with col_add:
-            if st.button("+ Adicionar influenciador"):
+            if st.button("+ Deseja cadastrar mais influenciadores?"):
                 st.session_state.qtd_influ_squad += 1
                 st.rerun()
 
         with col_remove:
             if st.session_state.qtd_influ_squad > 2:
-                if st.button("Remover último"):
+                if st.button("Remover último influenciador"):
                     st.session_state.qtd_influ_squad -= 1
                     st.rerun()
 
@@ -971,10 +1034,7 @@ elif pagina == "Campanhas":
                 st.write("**Status**")
                 st.markdown(f'<span class="status-pill">{c["status"]}</span>', unsafe_allow_html=True)
                 st.write("")
-                try:
-                    st.progress(int(c["progresso"]) / 100)
-                except:
-                    st.progress(0)
+                st.progress(int(c["progresso"]) / 100)
 
             with col3:
                 st.write("**Valor**")
@@ -1033,11 +1093,8 @@ elif pagina == "Detalhe da Campanha":
             st.markdown(f'<div class="info-line"><span class="purple">Status:</span> <span class="status-pill">{campanha["status"]}</span></div>', unsafe_allow_html=True)
 
             st.write("**Progresso**")
-            try:
-                st.progress(int(campanha["progresso"]) / 100)
-                st.caption(f"{int(campanha['progresso'])}% concluído")
-            except:
-                st.progress(0)
+            st.progress(int(campanha["progresso"]) / 100)
+            st.caption(f"{int(campanha['progresso'])}% concluído")
 
         with col2:
             st.markdown('<div class="small-muted">Valor total</div>', unsafe_allow_html=True)
