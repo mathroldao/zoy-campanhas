@@ -119,6 +119,12 @@ div[data-testid="stLinkButton"] a p {
     box-shadow: 0 8px 22px rgba(17,24,39,0.04);
 }
 
+.card:empty,
+.card-purple:empty,
+.mini-card:empty {
+    display: none !important;
+}
+
 .sub {
     color: #6B7280 !important;
     margin-top: -10px;
@@ -143,11 +149,11 @@ hr {
     background: linear-gradient(
         90deg,
         rgba(124,58,237,0),
-        rgba(124,58,237,0.45),
-        rgba(168,85,247,0.25),
+        rgba(124,58,237,0.55),
+        rgba(168,85,247,0.35),
         rgba(124,58,237,0)
     );
-    margin: 28px 0;
+    margin: 32px 0;
     border-radius: 999px;
 }
 
