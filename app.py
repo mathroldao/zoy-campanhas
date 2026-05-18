@@ -2,6 +2,7 @@ import sqlite3
 from datetime import date
 import pandas as pd
 import streamlit as st
+import plotly.express as px
 
 DB_NAME = "zoy_campanhas.db"
 
@@ -30,7 +31,7 @@ header[data-testid="stHeader"] {
     padding-top: 3rem;
     padding-left: 4rem;
     padding-right: 4rem;
-    max-width: 1600px;
+    max-width: 1650px;
 }
 
 section[data-testid="stSidebar"] {
@@ -58,20 +59,20 @@ label,
 
 [data-testid="stMetric"] {
     background: linear-gradient(145deg, #070707, #111111);
-    border: 1px solid rgba(168,85,247,0.35);
+    border: 1px solid rgba(168,85,247,0.38);
     padding: 22px;
-    border-radius: 20px;
+    border-radius: 22px;
     box-shadow: 0 0 30px rgba(168,85,247,0.08);
 }
 
 [data-testid="stMetricValue"] {
     color: #FFFFFF !important;
-    font-size: 30px !important;
+    font-size: 29px !important;
 }
 
 [data-testid="stMetricLabel"] {
     color: #C084FC !important;
-    font-weight: 700 !important;
+    font-weight: 800 !important;
 }
 
 .stButton button,
@@ -114,21 +115,6 @@ div[data-testid="stForm"] button:hover {
     border-radius: 18px;
     padding: 18px;
     margin-bottom: 12px;
-}
-
-.zoy-logo {
-    font-size: 44px;
-    font-weight: 950;
-    letter-spacing: -2px;
-    color: white;
-    margin-bottom: 6px;
-}
-
-.zoy-sub {
-    color: #A855F7 !important;
-    font-size: 13px;
-    font-weight: 700;
-    margin-bottom: 28px;
 }
 
 .sub {
@@ -208,11 +194,25 @@ div[data-testid="stDataFrame"] {
     letter-spacing: .7px;
 }
 
-.progress-label {
-    color: #E2E8F0 !important;
-    font-size: 15px;
-    font-weight: 700;
+.logo-wrapper {
+    margin-bottom: 22px;
 }
+
+.sidebar-caption {
+    color: #94A3B8 !important;
+    font-size: 13px;
+    margin-top: -5px;
+    margin-bottom: 28px;
+}
+
+.alert-card {
+    background: linear-gradient(145deg, rgba(168,85,247,0.10), #050505);
+    border: 1px solid rgba(168,85,247,0.32);
+    border-radius: 18px;
+    padding: 18px;
+    margin-bottom: 12px;
+}
+
 </style>
 """, unsafe_allow_html=True)
 
@@ -397,8 +397,10 @@ criar_tabelas()
 # =========================
 # SIDEBAR
 # =========================
-st.sidebar.markdown('<div class="zoy-logo">ZOY</div>', unsafe_allow_html=True)
-st.sidebar.markdown('<div class="zoy-sub">CAMPAIGN OS</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
+st.sidebar.image("logo_zoy.png", width=110)
+st.sidebar.markdown('</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
 
 pagina = st.sidebar.radio(
     "Menu",
@@ -413,7 +415,7 @@ pagina = st.sidebar.radio(
 )
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Zoy Campaign OS · V3")
+st.sidebar.caption("Zoy Campaign OS · V4")
 
 
 # =========================
@@ -429,7 +431,6 @@ if pagina == "Dashboard":
     total = len(campanhas_df)
     ativas = len(campanhas_df[~campanhas_df["status"].isin(["Finalizado", "Cancelado"])]) if total > 0 else 0
     finalizadas = len(campanhas_df[campanhas_df["status"] == "Finalizado"]) if total > 0 else 0
-    canceladas = len(campanhas_df[campanhas_df["status"] == "Cancelado"]) if total > 0 else 0
     investimento = campanhas_df["valor"].sum() if total > 0 else 0
 
     contratos_pendentes = len(influ_df[influ_df["status_contrato"] != "Assinado"]) if not influ_df.empty else 0
@@ -448,27 +449,61 @@ if pagina == "Dashboard":
 
     st.markdown("---")
 
-    st.subheader("Visão geral por status")
+    col_status, col_atendimento = st.columns([1.2, 1])
 
-    if campanhas_df.empty:
-        st.info("Nenhuma campanha cadastrada ainda.")
-    else:
-        status_counts = campanhas_df["status"].value_counts().to_dict()
-        cols = st.columns(4)
+    with col_status:
+        st.subheader("Visão geral por status")
 
-        for idx, status in enumerate(STATUS_CAMPANHA):
-            qtd = status_counts.get(status, 0)
-            with cols[idx % 4]:
-                st.markdown('<div class="mini-card">', unsafe_allow_html=True)
-                st.markdown(f'<div class="card-title">{status}</div>', unsafe_allow_html=True)
-                st.markdown(f'<div class="big-number">{qtd}</div>', unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+        if campanhas_df.empty:
+            st.info("Nenhuma campanha cadastrada ainda.")
+        else:
+            status_df = (
+                campanhas_df.groupby("status")
+                .size()
+                .reset_index(name="quantidade")
+                .sort_values("quantidade", ascending=False)
+            )
 
-    st.markdown("---")
+            fig = px.pie(
+                status_df,
+                names="status",
+                values="quantidade",
+                hole=0.55,
+                color_discrete_sequence=[
+                    "#A855F7", "#7C3AED", "#C084FC", "#9333EA",
+                    "#6D28D9", "#DDD6FE", "#8B5CF6", "#581C87",
+                    "#E9D5FF", "#4C1D95", "#2E1065"
+                ]
+            )
 
-    col_a, col_b = st.columns([1, 1])
+            fig.update_traces(
+                textposition="inside",
+                textinfo="percent+label",
+                marker=dict(line=dict(color="#000000", width=2))
+            )
 
-    with col_a:
+            fig.update_layout(
+                paper_bgcolor="rgba(0,0,0,0)",
+                plot_bgcolor="rgba(0,0,0,0)",
+                font=dict(color="#F8FAFC", size=13),
+                showlegend=True,
+                legend=dict(
+                    orientation="v",
+                    yanchor="middle",
+                    y=0.5,
+                    xanchor="left",
+                    x=1.02,
+                    font=dict(color="#E2E8F0")
+                ),
+                margin=dict(l=0, r=0, t=10, b=10),
+                height=420
+            )
+
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_atendimento:
         st.subheader("Visão geral por atendimento")
 
         if campanhas_df.empty or "responsavel" not in campanhas_df.columns:
@@ -492,7 +527,11 @@ if pagina == "Dashboard":
                     st.markdown('<div class="small-muted">campanha(s) sob responsabilidade</div>', unsafe_allow_html=True)
                     st.markdown('</div>', unsafe_allow_html=True)
 
-    with col_b:
+    st.markdown("---")
+
+    col_criticas, col_recentes = st.columns([1, 1.4])
+
+    with col_criticas:
         st.subheader("Campanhas críticas")
 
         if campanhas_df.empty:
@@ -509,21 +548,21 @@ if pagina == "Dashboard":
                 st.success("Nenhuma campanha crítica no momento.")
             else:
                 for _, c in criticas.iterrows():
-                    st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+                    st.markdown('<div class="alert-card">', unsafe_allow_html=True)
                     st.markdown(f'<div class="card-title">{c["status"]}</div>', unsafe_allow_html=True)
                     st.write(f"**{c['campanha']}**")
                     st.write(f"{c['cliente']} · {c['responsavel']}")
                     st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown("---")
-    st.subheader("Campanhas recentes")
+    with col_recentes:
+        st.subheader("Campanhas recentes")
 
-    if not campanhas_df.empty:
-        df_view = campanhas_df[["cliente", "campanha", "responsavel", "valor", "inicio", "fim", "status"]].copy()
-        df_view["valor"] = df_view["valor"].apply(formatar_moeda)
-        st.dataframe(df_view, use_container_width=True, hide_index=True)
-    else:
-        st.info("Nenhuma campanha cadastrada ainda.")
+        if not campanhas_df.empty:
+            df_view = campanhas_df[["cliente", "campanha", "responsavel", "valor", "inicio", "fim", "status"]].copy()
+            df_view["valor"] = df_view["valor"].apply(formatar_moeda)
+            st.dataframe(df_view, use_container_width=True, hide_index=True)
+        else:
+            st.info("Nenhuma campanha cadastrada ainda.")
 
 
 # =========================
