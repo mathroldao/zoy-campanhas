@@ -905,44 +905,56 @@ elif pagina == "Campanhas":
 
         if campanhas_df.empty:
             st.info("Nenhuma campanha encontrada para esse responsável.")
-        else:
+               else:
             for _, c in campanhas_df.iterrows():
+
                 st.markdown('<div class="card">', unsafe_allow_html=True)
-            col1, col2, col3 = st.columns([2, 1, 1])
 
-            with col1:
-                st.subheader(c["campanha"])
-                st.write(f"**Cliente/Agência:** {c['cliente']}")
-                st.write(f"**Marca:** {c['marca'] if c['marca'] else '-'}")
-                st.write(f"**Responsável:** {c['responsavel']}")
-                st.write(f"**Mês de início:** {c['inicio']}")
-                st.write(f"**Prazo de pagamento:** {c['prazo_pagamento'] if c['prazo_pagamento'] else '-'}")
+                col1, col2, col3 = st.columns([2, 1, 1])
 
-            with col2:
-                st.write("**Status**")
-                st.markdown(f'<span class="status-pill">{c["status"]}</span>', unsafe_allow_html=True)
-                st.write("")
-                st.progress(int(c["progresso"]) / 100)
+                with col1:
+                    st.subheader(c["campanha"])
+                    st.write(f"**Cliente/Agência:** {c['cliente']}")
+                    st.write(f"**Marca:** {c['marca'] if c['marca'] else '-'}")
+                    st.write(f"**Responsável:** {c['responsavel']}")
+                    st.write(f"**Mês de início:** {c['inicio']}")
+                    st.write(f"**Prazo de pagamento:** {c['prazo_pagamento'] if c['prazo_pagamento'] else '-'}")
 
-            with col3:
-                st.write("**Valor**")
-                st.subheader(formatar_moeda(c["valor"]))
+                with col2:
+                    st.write("**Status**")
+                    st.markdown(
+                        f'<span class="status-pill">{c["status"]}</span>',
+                        unsafe_allow_html=True
+                    )
+                    st.write("")
+                    st.progress(int(c["progresso"]) / 100)
 
-                if c["drive"]:
-                    st.link_button("Abrir Drive", c["drive"])
+                with col3:
+                    st.write("**Valor**")
+                    st.subheader(formatar_moeda(c["valor"]))
 
-            with st.expander("Ver detalhes rápidos"):
-                squad_df = buscar_influenciadores_por_campanha(int(c["id"]))
+                    if c["drive"]:
+                        st.link_button("Abrir Drive", c["drive"])
 
-                if squad_df.empty:
-                    st.info("Nenhum influenciador cadastrado nesta campanha ainda.")
-                else:
-                    squad_view = squad_df[["arroba", "valor", "entregaveis", "status_conteudo", "status_contrato"]].copy()
-                    squad_view["valor"] = squad_view["valor"].apply(formatar_moeda)
-                    st.dataframe(squad_view, use_container_width=True, hide_index=True)
+                with st.expander("Ver detalhes rápidos"):
+                    squad_df = buscar_influenciadores_por_campanha(int(c["id"]))
 
-            st.markdown('</div>', unsafe_allow_html=True)
+                    if squad_df.empty:
+                        st.info("Nenhum influenciador cadastrado nesta campanha ainda.")
+                    else:
+                        squad_view = squad_df[
+                            ["arroba", "valor", "entregaveis", "status_conteudo", "status_contrato"]
+                        ].copy()
 
+                        squad_view["valor"] = squad_view["valor"].apply(formatar_moeda)
+
+                        st.dataframe(
+                            squad_view,
+                            use_container_width=True,
+                            hide_index=True
+                        )
+
+                st.markdown('</div>', unsafe_allow_html=True)
 
 elif pagina == "Detalhe da Campanha":
     campanhas_df = buscar_campanhas()
