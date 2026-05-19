@@ -640,10 +640,6 @@ if not st.session_state.logado:
         unsafe_allow_html=True
     )
 
-    st.markdown(
-        "<p style='text-align:center;color:#6B7280;'>Agência Zoy</p>",
-        unsafe_allow_html=True
-    )
 
     st.markdown("<br>", unsafe_allow_html=True)
 
