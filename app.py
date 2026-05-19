@@ -878,7 +878,35 @@ elif pagina == "Campanhas":
     if campanhas_df.empty:
         st.info("Nenhuma campanha cadastrada ainda.")
     else:
-        for _, c in campanhas_df.iterrows():
+        responsaveis = sorted(
+            campanhas_df["responsavel"]
+            .fillna("")
+            .replace("", "Sem responsável")
+            .unique()
+            .tolist()
+        )
+
+        filtro_responsavel = st.selectbox(
+            "Filtrar por responsável",
+            ["Todos"] + responsaveis
+        )
+
+        if filtro_responsavel != "Todos":
+            if filtro_responsavel == "Sem responsável":
+                campanhas_df = campanhas_df[
+                    campanhas_df["responsavel"].fillna("").str.strip() == ""
+                ]
+            else:
+                campanhas_df = campanhas_df[
+                    campanhas_df["responsavel"] == filtro_responsavel
+                ]
+
+        st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+
+        if campanhas_df.empty:
+            st.info("Nenhuma campanha encontrada para esse responsável.")
+        else:
+            for _, c in campanhas_df.iterrows():
             st.markdown('<div class="card">', unsafe_allow_html=True)
 
             col1, col2, col3 = st.columns([2, 1, 1])
