@@ -625,7 +625,10 @@ if "pagina_ativa" not in st.session_state:
     st.session_state.pagina_ativa = "Dashboard"
 
 if not st.session_state.logado:
-    st.image("logo_zoy_dark.png", width=160)
+    col1, col2, col3 = st.columns([1, 1, 1])
+
+with col2:
+    st.image("logo_zoy_dark.png", width=140)
 
     st.markdown(
         "<h1 style='text-align:center;'>Zoy Influence Hub</h1>",
