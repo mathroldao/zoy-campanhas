@@ -625,10 +625,6 @@ if "pagina_ativa" not in st.session_state:
     st.session_state.pagina_ativa = "Dashboard"
 
 if not st.session_state.logado:
-    col1, col2, col3 = st.columns([1, 1, 1])
-
-    with col2:
-        st.image("logo_zoy_dark.png", width=140)
 
     st.markdown(
         "<h1 style='text-align:center;'>Zoy Influence Hub</h1>",
@@ -640,9 +636,11 @@ if not st.session_state.logado:
         unsafe_allow_html=True
     )
 
-
     st.markdown("<br>", unsafe_allow_html=True)
 
+    col1, col2, col3 = st.columns([1.2, 2, 1.2])
+
+with col2:
     email_login = st.text_input("E-mail")
     senha_login = st.text_input("Senha", type="password")
 
