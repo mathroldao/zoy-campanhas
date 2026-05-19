@@ -905,7 +905,7 @@ elif pagina == "Campanhas":
 
         if campanhas_df.empty:
             st.info("Nenhuma campanha encontrada para esse responsável.")
-               else:
+        else:
             for _, c in campanhas_df.iterrows():
 
                 st.markdown('<div class="card">', unsafe_allow_html=True)
