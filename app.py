@@ -311,7 +311,7 @@ def criar_tabelas():
     )
     """)
 
-        cursor.execute("""
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT UNIQUE,
