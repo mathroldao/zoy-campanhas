@@ -627,8 +627,18 @@ if "pagina_ativa" not in st.session_state:
 if not st.session_state.logado:
     col1, col2, col3 = st.columns([1, 1, 1])
 
-with col2:
-    st.image("logo_zoy_dark.png", width=140)
+    with col2:
+        st.image("logo_zoy_dark.png", width=140)
+
+    st.markdown(
+        "<h1 style='text-align:center;'>Zoy Influence Hub</h1>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown(
+        "<p style='text-align:center;color:#6B7280;'>Agência Zoy</p>",
+        unsafe_allow_html=True
+    )
 
     st.markdown(
         "<h1 style='text-align:center;'>Zoy Influence Hub</h1>",
