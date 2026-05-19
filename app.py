@@ -6,7 +6,7 @@ import plotly.express as px
 DB_NAME = "zoy_campanhas.db"
 
 st.set_page_config(
-    page_title="Campaign OS",
+    page_title="Zoy Hub",
     page_icon="🟣",
     layout="wide"
 )
@@ -626,7 +626,7 @@ if "pagina_ativa" not in st.session_state:
 
 if not st.session_state.logado:
     st.markdown(
-        "<h1 style='text-align:center;'>Campaign OS</h1>",
+        "<h1 style='text-align:center;'>Zoy Hub</h1>",
         unsafe_allow_html=True
     )
 
@@ -652,7 +652,7 @@ if not st.session_state.logado:
 st.sidebar.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
 st.sidebar.image("logo_zoy_dark.png", width=115)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
-st.sidebar.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sidebar-caption">Zoy Hub</div>', unsafe_allow_html=True)
 
 if st.sidebar.button("+ Nova Campanha", use_container_width=True):
     st.session_state.pagina_ativa = "Nova Campanha"
@@ -676,7 +676,7 @@ pagina = st.sidebar.radio(
 st.session_state.pagina_ativa = pagina
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Zoy Campaign OS · V10")
+st.sidebar.caption("Zoy Hub")
 
 
 def campo_influenciador(i, prefixo="nova"):
