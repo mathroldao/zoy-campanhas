@@ -311,6 +311,31 @@ def criar_tabelas():
     )
     """)
 
+        cursor.execute("""
+    CREATE TABLE IF NOT EXISTS usuarios (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        email TEXT UNIQUE,
+        senha TEXT,
+        ativo INTEGER DEFAULT 1
+    )
+    """)
+
+    usuarios_padrao = [
+        ("jean@agenciazoy.com", "zoy2026"),
+        ("rafaela@agenciazoy.com", "zoy2026"),
+        ("taila@agenciazoy.com", "zoy2026"),
+        ("camila@agenciazoy.com", "zoy2026"),
+        ("contato@agenciazoy.com", "zoy2026"),
+        ("matheus@agenciazoy.com", "zoy2026"),
+        ("financeiro@agenciazoy.com", "zoy2026"),
+    ]
+
+    for email, senha in usuarios_padrao:
+        cursor.execute("""
+        INSERT OR IGNORE INTO usuarios (email, senha, ativo)
+        VALUES (?, ?, 1)
+        """, (email, senha))
+        
     try:
         cursor.execute("ALTER TABLE campanhas ADD COLUMN prazo_pagamento TEXT")
     except sqlite3.OperationalError:
@@ -563,11 +588,35 @@ def excluir_campanha(campanha_id):
     conn.commit()
     conn.close()
 
+def validar_login(email, senha):
+    email = (email or "").strip().lower()
+    senha = (senha or "").strip()
 
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT email FROM usuarios
+    WHERE email = ?
+    AND senha = ?
+    AND ativo = 1
+    """, (email, senha))
+
+    usuario = cursor.fetchone()
+    conn.close()
+
+    return usuario is not None
+    
 criar_tabelas()
 
 if "qtd_influ_squad" not in st.session_state:
     st.session_state.qtd_influ_squad = 2
+
+if "logado" not in st.session_state:
+    st.session_state.logado = False
+
+if "usuario_logado" not in st.session_state:
+    st.session_state.usuario_logado = ""
 
 if "tipo_campanha_atual" not in st.session_state:
     st.session_state.tipo_campanha_atual = "Individual"
@@ -575,7 +624,31 @@ if "tipo_campanha_atual" not in st.session_state:
 if "pagina_ativa" not in st.session_state:
     st.session_state.pagina_ativa = "Dashboard"
 
+if not st.session_state.logado:
+    st.markdown(
+        "<h1 style='text-align:center;'>Campaign OS</h1>",
+        unsafe_allow_html=True
+    )
 
+    st.markdown(
+        "<p style='text-align:center;color:#6B7280;'>Acesso interno Agência Zoy</p>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    email_login = st.text_input("E-mail")
+    senha_login = st.text_input("Senha", type="password")
+
+    if st.button("Entrar", use_container_width=True):
+        if validar_login(email_login, senha_login):
+            st.session_state.logado = True
+            st.session_state.usuario_logado = email_login
+            st.rerun()
+        else:
+            st.error("Login ou senha inválidos.")
+
+    st.stop()
 st.sidebar.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
 st.sidebar.image("logo_zoy_dark.png", width=115)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
