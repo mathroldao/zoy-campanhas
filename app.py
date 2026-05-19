@@ -625,10 +625,32 @@ if "pagina_ativa" not in st.session_state:
     st.session_state.pagina_ativa = "Dashboard"
 
 if not st.session_state.logado:
+    st.image("logo_zoy_dark.png", width=160)
+
     st.markdown(
-        "<h1 style='text-align:center;'>Campaign OS</h1>",
+        "<h1 style='text-align:center;'>Zoy Influence Hub</h1>",
         unsafe_allow_html=True
     )
+
+    st.markdown(
+        "<p style='text-align:center;color:#6B7280;'>Acesso interno Agência Zoy</p>",
+        unsafe_allow_html=True
+    )
+
+    st.markdown("<br>", unsafe_allow_html=True)
+
+    email_login = st.text_input("E-mail")
+    senha_login = st.text_input("Senha", type="password")
+
+    if st.button("Entrar", use_container_width=True):
+        if validar_login(email_login, senha_login):
+            st.session_state.logado = True
+            st.session_state.usuario_logado = email_login
+            st.rerun()
+        else:
+            st.error("Login ou senha inválidos.")
+
+    st.stop()
 
     st.markdown(
         "<p style='text-align:center;color:#6B7280;'>Acesso interno Agência Zoy</p>",
@@ -652,7 +674,7 @@ if not st.session_state.logado:
 st.sidebar.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
 st.sidebar.image("logo_zoy_dark.png", width=115)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
-st.sidebar.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sidebar-caption">ZOY INFLUENCE HUB<</div>', unsafe_allow_html=True)
 
 st.sidebar.caption(f"Logado como: {st.session_state.usuario_logado}")
 
@@ -683,8 +705,7 @@ pagina = st.sidebar.radio(
 st.session_state.pagina_ativa = pagina
 
 st.sidebar.markdown("---")
-st.sidebar.caption("Zoy Campaign OS · V10")
-
+st.sidebar.caption("Zoy Influence Hub · V12")
 
 def campo_influenciador(i, prefixo="nova"):
     base_influs = buscar_influenciadores_base()
