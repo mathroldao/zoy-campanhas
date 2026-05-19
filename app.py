@@ -653,7 +653,18 @@ st.sidebar.markdown('<div class="logo-wrapper">', unsafe_allow_html=True)
 st.sidebar.image("logo_zoy_dark.png", width=115)
 st.sidebar.markdown('</div>', unsafe_allow_html=True)
 st.sidebar.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
+st.sidebar.markdown('<div class="sidebar-caption">CAMPAIGN OS</div>', unsafe_allow_html=True)
 
+st.sidebar.caption(f"Logado como: {st.session_state.usuario_logado}")
+
+if st.sidebar.button("Sair", use_container_width=True):
+    st.session_state.logado = False
+    st.session_state.usuario_logado = ""
+    st.rerun()
+
+if st.sidebar.button("+ Nova Campanha", use_container_width=True):
+    st.session_state.pagina_ativa = "Nova Campanha"
+    
 if st.sidebar.button("+ Nova Campanha", use_container_width=True):
     st.session_state.pagina_ativa = "Nova Campanha"
 
