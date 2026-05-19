@@ -633,7 +633,7 @@ if not st.session_state.logado:
     )
 
     st.markdown(
-        "<p style='text-align:center;color:#6B7280;'>Acesso interno Agência Zoy</p>",
+        "<p style='text-align:center;color:#6B7280;'>Agência Zoy</p>",
         unsafe_allow_html=True
     )
 
