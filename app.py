@@ -750,7 +750,6 @@ if pagina == "Dashboard":
     st.title("Dashboard de Campanhas")
     st.markdown('<div class="sub">Central executiva de acompanhamento das campanhas da Agência Zoy</div>', unsafe_allow_html=True)
 
-        )
     total = len(campanhas_df)
     ativas = len(campanhas_df[~campanhas_df["status"].isin(["Finalizado", "Cancelado"])]) if total > 0 else 0
     investimento = campanhas_df["valor"].sum() if total > 0 else 0
