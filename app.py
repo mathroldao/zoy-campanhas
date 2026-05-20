@@ -749,7 +749,27 @@ if pagina == "Dashboard":
 
     st.title("Dashboard de Campanhas")
     st.markdown('<div class="sub">Central executiva de acompanhamento das campanhas da Agência Zoy</div>', unsafe_allow_html=True)
+    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
 
+    backup_col1, backup_col2 = st.columns(2)
+
+    with backup_col1:
+        st.download_button(
+            label="Baixar backup de campanhas",
+            data=campanhas_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="backup_campanhas_zoy.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
+
+    with backup_col2:
+        st.download_button(
+            label="Baixar backup de influenciadores",
+            data=influ_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="backup_influenciadores_zoy.csv",
+            mime="text/csv",
+            use_container_width=True
+        )
     total = len(campanhas_df)
     ativas = len(campanhas_df[~campanhas_df["status"].isin(["Finalizado", "Cancelado"])]) if total > 0 else 0
     investimento = campanhas_df["valor"].sum() if total > 0 else 0
