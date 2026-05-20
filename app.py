@@ -749,26 +749,7 @@ if pagina == "Dashboard":
 
     st.title("Dashboard de Campanhas")
     st.markdown('<div class="sub">Central executiva de acompanhamento das campanhas da Agência Zoy</div>', unsafe_allow_html=True)
-    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
 
-    backup_col1, backup_col2, backup_col3 = st.columns([1, 1, 4])
-
-    with backup_col1:
-        st.download_button(
-            label="Baixar backup de campanhas",
-            data=campanhas_df.to_csv(index=False).encode("utf-8-sig"),
-            file_name="backup_campanhas_zoy.csv",
-            mime="text/csv",
-            use_container_width=False
-        )
-
-    with backup_col2:
-        st.download_button(
-            label="Baixar backup de influenciadores",
-            data=influ_df.to_csv(index=False).encode("utf-8-sig"),
-            file_name="backup_influenciadores_zoy.csv",
-            mime="text/csv",
-            use_container_width=True
         )
     total = len(campanhas_df)
     ativas = len(campanhas_df[~campanhas_df["status"].isin(["Finalizado", "Cancelado"])]) if total > 0 else 0
@@ -876,7 +857,26 @@ if pagina == "Dashboard":
         st.dataframe(df_view, use_container_width=True, hide_index=True)
     else:
         st.info("Nenhuma campanha cadastrada ainda.")
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.caption("Ferramentas administrativas")
 
+    admin1, admin2 = st.columns([1, 1, 6])
+
+    with admin1:
+        st.download_button(
+            label="Backup campanhas",
+            data=campanhas_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="backup_campanhas_zoy.csv",
+            mime="text/csv"
+        )
+
+    with admin2:
+        st.download_button(
+            label="Backup influenciadores",
+            data=influ_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="backup_influenciadores_zoy.csv",
+            mime="text/csv"
+        )
 
 elif pagina == "Nova Campanha":
     st.title("Nova Campanha")
