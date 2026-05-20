@@ -859,7 +859,7 @@ if pagina == "Dashboard":
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.caption("Ferramentas administrativas")
 
-    admin1, admin2 = st.columns([1, 1, 6])
+    admin1, admin2, admin3 = st.columns([1, 1, 6])
 
     with admin1:
         st.download_button(
