@@ -751,7 +751,7 @@ if pagina == "Dashboard":
     st.markdown('<div class="sub">Central executiva de acompanhamento das campanhas da Agência Zoy</div>', unsafe_allow_html=True)
     st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
 
-    backup_col1, backup_col2 = st.columns(2)
+    backup_col1, backup_col2, backup_col3 = st.columns([1, 1, 4])
 
     with backup_col1:
         st.download_button(
@@ -759,7 +759,7 @@ if pagina == "Dashboard":
             data=campanhas_df.to_csv(index=False).encode("utf-8-sig"),
             file_name="backup_campanhas_zoy.csv",
             mime="text/csv",
-            use_container_width=True
+            use_container_width=False
         )
 
     with backup_col2:
