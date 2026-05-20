@@ -310,7 +310,17 @@ def criar_tabelas():
         arroba TEXT UNIQUE
     )
     """)
-
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS observacoes_campanha (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        campanha_id INTEGER,
+        usuario TEXT,
+        observacao TEXT,
+        data TEXT,
+        FOREIGN KEY(campanha_id) REFERENCES campanhas(id)
+    )
+    
+    """)
     cursor.execute("""
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -510,7 +520,34 @@ def buscar_influenciadores():
         df["marca"] = ""
 
     return df
+def salvar_observacao(campanha_id, usuario, observacao):
+    conn = sqlite3.connect(DB_NAME)
+    cursor = conn.cursor()
 
+    from datetime import datetime
+    data = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    cursor.execute("""
+        INSERT INTO observacoes_campanha (campanha_id, usuario, observacao, data)
+        VALUES (?, ?, ?, ?)
+    """, (campanha_id, usuario, observacao, data))
+
+    conn.commit()
+    conn.close()
+
+
+def buscar_observacoes(campanha_id):
+    conn = sqlite3.connect(DB_NAME)
+
+    df = pd.read_sql_query("""
+        SELECT usuario, observacao, data
+        FROM observacoes_campanha
+        WHERE campanha_id = ?
+        ORDER BY id DESC
+    """, conn, params=(campanha_id,))
+
+    conn.close()
+    return df
 
 def buscar_influenciadores_por_campanha(campanha_id):
     conn = conectar()
@@ -1111,7 +1148,44 @@ elif pagina == "Detalhe da Campanha":
                 st.write(campanha["observacoes"] if campanha["observacoes"] else "-")
 
         st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.subheader("Observações da Campanha")
 
+        nova_observacao = st.text_area(
+            "Adicionar atualização",
+            placeholder="Ex: Cliente pediu ajuste no roteiro / conteúdo enviado para aprovação / aguardando retorno...",
+            key=f"obs_campanha_{campanha_id}"
+        )
+
+        if st.button("Salvar observação", key=f"salvar_obs_{campanha_id}"):
+            if nova_observacao.strip():
+                salvar_observacao(
+                    campanha_id,
+                    st.session_state.usuario_logado if "usuario_logado" in st.session_state else "Equipe Zoy",
+                    nova_observacao
+                )
+                st.success("Observação salva.")
+                st.rerun()
+            else:
+                st.error("Digite uma observação antes de salvar.")
+
+        obs_df = buscar_observacoes(campanha_id)
+
+        if obs_df.empty:
+            st.info("Nenhuma observação registrada ainda.")
+        else:
+            for _, obs in obs_df.iterrows():
+                st.markdown(
+                    f"""
+                    <div class="mini-card">
+                        <div class="small-muted">{obs['data']} • {obs['usuario']}</div>
+                        <div style="margin-top:8px;">{obs['observacao']}</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
+
+        st.markdown('</div>', unsafe_allow_html=True)
         col_squad, col_status = st.columns([1.3, 1])
 
         with col_squad:
