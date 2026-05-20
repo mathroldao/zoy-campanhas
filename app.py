@@ -366,12 +366,16 @@ STATUS_CAMPANHA = [
     "Mapeamento",
     "Atendimento Iniciado",
     "Contrato Enviado",
+    "Roteiro Pendente",
+    "Roteiro em Aprovação",
     "Conteúdo Pendente",
     "Conteúdo em Aprovação",
     "Ajuste Solicitado",
     "Aprovado",
     "Postado",
     "Relatório Pendente",
+    "Campanha Pausada",
+    "Campanha Declinada",
     "Finalizado",
     "Cancelado"
 ]
@@ -397,13 +401,17 @@ def calcular_progresso(status):
     mapa = {
         "Mapeamento": 10,
         "Atendimento Iniciado": 20,
-        "Contrato Enviado": 35,
-        "Conteúdo Pendente": 50,
-        "Conteúdo em Aprovação": 65,
-        "Ajuste Solicitado": 70,
+        "Contrato Enviado": 30,
+        "Roteiro Pendente": 40,
+        "Roteiro em Aprovação": 50,
+        "Conteúdo Pendente": 60,
+        "Conteúdo em Aprovação": 70,
+        "Ajuste Solicitado": 75,
         "Aprovado": 80,
         "Postado": 90,
         "Relatório Pendente": 95,
+        "Campanha Pausada": 50,
+        "Campanha Declinada": 0,
         "Finalizado": 100,
         "Cancelado": 0
     }
