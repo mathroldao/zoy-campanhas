@@ -1299,7 +1299,7 @@ if pagina == "Nova Campanha":
                         influ["observacoes"]
                     )
 
-                        try:
+            try:
                 resultado_email = enviar_email_nova_campanha(
                     cliente,
                     marca,
