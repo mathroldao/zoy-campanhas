@@ -268,7 +268,50 @@ div[role="radiogroup"] label:has(input:checked) {
 
 def conectar():
     return sqlite3.connect(DB_NAME, check_same_thread=False)
+def enviar_email_nova_campanha(responsavel, campanha, cliente, marca, inicio, prazo, status):
+    try:
+        if responsavel not in EMAIL_RESPONSAVEIS:
+            return
 
+        destinatario = EMAIL_RESPONSAVEIS[responsavel]
+
+        remetente = st.secrets["email"]["remetente"]
+        senha_app = st.secrets["email"]["senha_app"]
+
+        assunto = "Nova campanha atribuída no Zoy Hub"
+
+        corpo = f"""
+Olá!
+
+Uma nova campanha foi cadastrada no Zoy Hub sob sua responsabilidade.
+
+Campanha: {campanha}
+Cliente/Agência: {cliente}
+Marca: {marca if marca else "-"}
+Mês de início: {inicio}
+Prazo de pagamento: {prazo if prazo else "-"}
+Status inicial: {status}
+
+Acesse o Zoy Hub para acompanhar os detalhes.
+
+Zoy Hub
+        """
+
+        msg = MIMEMultipart()
+        msg["From"] = remetente
+        msg["To"] = destinatario
+        msg["Subject"] = assunto
+
+        msg.attach(MIMEText(corpo, "plain"))
+
+        servidor = smtplib.SMTP("smtp.gmail.com", 587)
+        servidor.starttls()
+        servidor.login(remetente, senha_app)
+        servidor.send_message(msg)
+        servidor.quit()
+
+    except Exception as e:
+        st.warning(f"E-mail não enviado: {e}")
 
 def criar_tabelas():
     conn = conectar()
@@ -407,7 +450,14 @@ STATUS_CAMPANHA = [
     "Finalizado",
     "Cancelado"
 ]
-
+EMAIL_RESPONSAVEIS = {
+    "Jean": "jean@agenciazoy.com",
+    "Rafaela": "rafaela@agenciazoy.com",
+    "Taila": "taila@agenciazoy.com",
+    "Camila": "camila@agenciazoy.com",
+    "Financeiro": "financeiro@agenciazoy.com",
+    "Matheus": "matheus@agenciazoy.com",
+}
 STATUS_CONTEUDO = [
     "Pendente",
     "Recebido",
@@ -1182,7 +1232,15 @@ elif pagina == "Nova Campanha":
                 cliente, marca, campanha, responsavel, valor, mes_inicio,
                 prazo_pagamento, status, drive, briefing, observacoes
             )
-
+            enviar_email_nova_campanha(
+                responsavel,
+                campanha,
+                cliente,
+                marca,
+                mes_inicio,
+                prazo_pagamento,
+                status
+            )
             for influ in influenciadores_temp:
                 if influ["arroba"]:
                     salvar_influenciador(
