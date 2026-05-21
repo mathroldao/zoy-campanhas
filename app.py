@@ -312,7 +312,61 @@ Zoy Hub
 
     except Exception as e:
         st.warning(f"E-mail não enviado: {e}")
+def restaurar_backup(campanhas_file, influenciadores_file):
+    conn = conectar()
+    cursor = conn.cursor()
 
+    campanhas_df = pd.read_csv(campanhas_file)
+    influ_df = pd.read_csv(influenciadores_file)
+
+    cursor.execute("DELETE FROM influenciadores")
+    cursor.execute("DELETE FROM campanhas")
+
+    for _, row in campanhas_df.iterrows():
+        cursor.execute("""
+            INSERT INTO campanhas (
+                id, cliente, campanha, responsavel, valor, inicio, fim,
+                status, progresso, drive, briefing, observacoes,
+                prazo_pagamento, marca
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            int(row["id"]),
+            row["cliente"] if pd.notna(row["cliente"]) else "",
+            row["campanha"] if pd.notna(row["campanha"]) else "",
+            row["responsavel"] if pd.notna(row["responsavel"]) else "",
+            float(row["valor"]) if pd.notna(row["valor"]) else 0,
+            row["inicio"] if pd.notna(row["inicio"]) else "",
+            row["fim"] if pd.notna(row["fim"]) else "",
+            row["status"] if pd.notna(row["status"]) else "",
+            int(row["progresso"]) if pd.notna(row["progresso"]) else 0,
+            row["drive"] if pd.notna(row["drive"]) else "",
+            row["briefing"] if pd.notna(row["briefing"]) else "",
+            row["observacoes"] if pd.notna(row["observacoes"]) else "",
+            row["prazo_pagamento"] if pd.notna(row["prazo_pagamento"]) else "",
+            row["marca"] if pd.notna(row["marca"]) else ""
+        ))
+
+    for _, row in influ_df.iterrows():
+        cursor.execute("""
+            INSERT INTO influenciadores (
+                id, campanha_id, nome, arroba, valor, entregaveis,
+                postagem, status_conteudo, status_contrato, observacoes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            int(row["id"]),
+            int(row["campanha_id"]),
+            row["nome"] if pd.notna(row["nome"]) else "",
+            row["arroba"] if pd.notna(row["arroba"]) else "",
+            float(row["valor"]) if pd.notna(row["valor"]) else 0,
+            row["entregaveis"] if pd.notna(row["entregaveis"]) else "",
+            row["postagem"] if pd.notna(row["postagem"]) else "",
+            row["status_conteudo"] if pd.notna(row["status_conteudo"]) else "",
+            row["status_contrato"] if pd.notna(row["status_contrato"]) else "",
+            row["observacoes"] if pd.notna(row["observacoes"]) else ""
+        ))
+
+    conn.commit()
+    conn.close()
 def criar_tabelas():
     conn = conectar()
     cursor = conn.cursor()
@@ -1154,7 +1208,29 @@ if pagina == "Dashboard":
             file_name="backup_influenciadores_zoy.csv",
             mime="text/csv"
         )
+        
+with admin3:
+    st.caption("Restaurar backup")
 
+    backup_campanhas = st.file_uploader(
+        "Campanhas CSV",
+        type=["csv"],
+        key="upload_backup_campanhas"
+    )
+
+    backup_influenciadores = st.file_uploader(
+        "Influenciadores CSV",
+        type=["csv"],
+        key="upload_backup_influenciadores"
+    )
+
+    if st.button("Restaurar agora"):
+        if backup_campanhas is None or backup_influenciadores is None:
+            st.error("Envie os dois arquivos.")
+        else:
+            restaurar_backup(backup_campanhas, backup_influenciadores)
+            st.success("Backup restaurado com sucesso.")
+            st.rerun()
 elif pagina == "Nova Campanha":
     st.title("Nova Campanha")
     st.markdown('<div class="sub">Cadastre uma campanha nova e já monte o squad inicial</div>', unsafe_allow_html=True)
