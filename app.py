@@ -1117,7 +1117,11 @@ elif pagina == "Nova Campanha":
         cliente = st.text_input("Cliente/Agência", key="nova_cliente")
         marca = st.text_input("Marca", key="nova_marca")
         campanha = st.text_input("Nome da campanha", key="nova_campanha")
-        responsavel = st.text_input("Responsável interno", key="nova_responsavel")
+        responsavel = st.selectbox(
+    "Responsável interno",
+    ["Jean", "Rafaela", "Taila", "Camila", "Financeiro", "Matheus"],
+    key="nova_responsavel"
+)
         valor = st.number_input("Valor total da campanha", min_value=0.0, step=100.0, key="nova_valor")
 
     with col2:
@@ -1579,7 +1583,13 @@ elif pagina == "Detalhe da Campanha":
                     edit_cliente = st.text_input("Cliente/Agência", value=campanha["cliente"])
                     edit_marca = st.text_input("Marca", value=campanha["marca"] if campanha["marca"] else "")
                     edit_campanha = st.text_input("Nome da campanha", value=campanha["campanha"])
-                    edit_responsavel = st.text_input("Responsável interno", value=campanha["responsavel"])
+                    responsaveis_fixos = ["Jean", "Rafaela", "Taila", "Camila", "Financeiro", "Matheus"]
+                    edit_responsavel = st.selectbox(
+                        "Responsável interno",
+                        responsaveis_fixos,
+                        index=responsaveis_fixos.index(campanha["responsavel"]) if campanha["responsavel"] in responsaveis_fixos else 0
+                    )
+                    
                     edit_valor = st.number_input("Valor total", min_value=0.0, step=100.0, value=float(campanha["valor"]))
                     edit_mes = st.text_input("Mês de início", value=campanha["inicio"])
                     edit_prazo = st.text_input("Prazo de pagamento", value=campanha["prazo_pagamento"] if campanha["prazo_pagamento"] else "")
