@@ -1209,28 +1209,6 @@ if pagina == "Dashboard":
             mime="text/csv"
         )
         
-with admin3:
-    st.caption("Restaurar backup")
-
-    backup_campanhas = st.file_uploader(
-        "Campanhas CSV",
-        type=["csv"],
-        key="upload_backup_campanhas"
-    )
-
-    backup_influenciadores = st.file_uploader(
-        "Influenciadores CSV",
-        type=["csv"],
-        key="upload_backup_influenciadores"
-    )
-
-    if st.button("Restaurar agora"):
-        if backup_campanhas is None or backup_influenciadores is None:
-            st.error("Envie os dois arquivos.")
-        else:
-            restaurar_backup(backup_campanhas, backup_influenciadores)
-            st.success("Backup restaurado com sucesso.")
-            st.rerun()
 if pagina == "Nova Campanha":
     st.title("Nova Campanha")
     st.markdown('<div class="sub">Cadastre uma campanha nova e já monte o squad inicial</div>', unsafe_allow_html=True)
