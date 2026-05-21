@@ -1286,15 +1286,7 @@ if pagina == "Nova Campanha":
                 cliente, marca, campanha, responsavel, valor, mes_inicio,
                 prazo_pagamento, status, drive, briefing, observacoes
             )
-            enviar_email_nova_campanha(
-                responsavel,
-                campanha,
-                cliente,
-                marca,
-                mes_inicio,
-                prazo_pagamento,
-                status
-            )
+            
             for influ in influenciadores_temp:
                 if influ["arroba"]:
                     salvar_influenciador(
@@ -1307,21 +1299,28 @@ if pagina == "Nova Campanha":
                         influ["observacoes"]
                     )
 
-            email_enviado, mensagem_email = enviar_email_nova_campanha(
-                cliente,
-                marca,
-                campanha,
-                responsavel,
-                mes_inicio,
-                prazo_pagamento,
-                status,
-                drive
-            )
+                        try:
+                resultado_email = enviar_email_nova_campanha(
+                    cliente,
+                    marca,
+                    campanha,
+                    responsavel,
+                    mes_inicio,
+                    prazo_pagamento,
+                    status,
+                    drive
+                )
 
-            if email_enviado:
-                st.info(mensagem_email)
-            else:
-                st.warning(mensagem_email)
+                if resultado_email:
+                    email_enviado, mensagem_email = resultado_email
+
+                    if email_enviado:
+                        st.info(mensagem_email)
+                    else:
+                        st.warning(mensagem_email)
+
+            except Exception as e:
+                st.warning(f"Campanha salva, mas o e-mail não foi enviado: {e}")
 
             st.session_state.qtd_influ_squad = 2
             st.session_state.tipo_campanha_atual = "Individual"
