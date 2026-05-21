@@ -1231,7 +1231,7 @@ with admin3:
             restaurar_backup(backup_campanhas, backup_influenciadores)
             st.success("Backup restaurado com sucesso.")
             st.rerun()
-elif pagina == "Nova Campanha":
+if pagina == "Nova Campanha":
     st.title("Nova Campanha")
     st.markdown('<div class="sub">Cadastre uma campanha nova e já monte o squad inicial</div>', unsafe_allow_html=True)
 
