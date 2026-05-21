@@ -1107,6 +1107,7 @@ else:
         use_container_width=True,
         hide_index=True
     )
+
     st.markdown("### Gerenciar agenda")
 
     agenda_opcoes = df_exibicao.apply(
@@ -1138,11 +1139,12 @@ else:
 
     with col_ag3:
         editar_agenda = st.button("Editar")
+
     total_extra = len(agenda_hoje_df) - 4
 
     if total_extra > 0:
         if not mostrar_tudo:
-            if st.button(f"Ver mais {total_extra} entregas"):
+            if st.button(f"Ver mais ({total_extra} entregas)"):
                 st.session_state["mostrar_agenda_completa"] = True
                 st.rerun()
         else:
