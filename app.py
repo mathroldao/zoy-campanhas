@@ -2,6 +2,9 @@ import sqlite3
 import pandas as pd
 import streamlit as st
 import plotly.express as px
+import smtplib
+from email.mime.text import MIMEText
+from email.mime.multipart import MIMEMultipart
 
 DB_NAME = "zoy_campanhas.db"
 
@@ -330,6 +333,21 @@ def criar_tabelas():
     )
     """)
 
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS agenda_entregas (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        campanha_id INTEGER,
+        tipo TEXT,
+        data TEXT,
+        horario TEXT,
+        responsavel TEXT,
+        influenciador TEXT,
+        descricao TEXT,
+        status TEXT DEFAULT 'Pendente',
+        FOREIGN KEY(campanha_id) REFERENCES campanhas(id)
+    )
+    """)
+
     usuarios_padrao = [
         ("jean@agenciazoy.com", "zoy2026"),
         ("rafaela@agenciazoy.com", "zoy2026"),
@@ -405,6 +423,16 @@ STATUS_CONTRATO = [
     "Enviado",
     "Assinado"
 ]
+
+EMAIL_RESPONSAVEIS = {
+    "jean": "jean@agenciazoy.com",
+    "rafaela": "rafaela@agenciazoy.com",
+    "taila": "taila@agenciazoy.com",
+    "camila": "camila@agenciazoy.com",
+    "matheus": "matheus@agenciazoy.com",
+    "financeiro": "financeiro@agenciazoy.com",
+    "contato": "contato@agenciazoy.com",
+}
 
 
 def calcular_progresso(status):
@@ -548,6 +576,146 @@ def buscar_observacoes(campanha_id):
 
     conn.close()
     return df
+
+
+def salvar_item_agenda(campanha_id, tipo, data, horario, responsavel, influenciador, descricao, status):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        INSERT INTO agenda_entregas (
+            campanha_id, tipo, data, horario, responsavel, influenciador, descricao, status
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+    """, (
+        campanha_id, tipo, data, horario, responsavel, influenciador, descricao, status
+    ))
+
+    conn.commit()
+    conn.close()
+
+
+def buscar_agenda_campanha(campanha_id):
+    conn = conectar()
+
+    df = pd.read_sql_query("""
+        SELECT *
+        FROM agenda_entregas
+        WHERE campanha_id = ?
+        ORDER BY data ASC, horario ASC
+    """, conn, params=(campanha_id,))
+
+    conn.close()
+    return df
+
+
+def buscar_agenda_hoje():
+    from datetime import date
+
+    hoje = date.today().strftime("%Y-%m-%d")
+
+    conn = conectar()
+
+    df = pd.read_sql_query("""
+        SELECT 
+            agenda_entregas.id,
+            agenda_entregas.tipo,
+            agenda_entregas.data,
+            agenda_entregas.horario,
+            agenda_entregas.responsavel,
+            agenda_entregas.influenciador,
+            agenda_entregas.descricao,
+            agenda_entregas.status,
+            campanhas.campanha,
+            campanhas.cliente,
+            campanhas.marca
+        FROM agenda_entregas
+        LEFT JOIN campanhas ON agenda_entregas.campanha_id = campanhas.id
+        WHERE agenda_entregas.data = ?
+        ORDER BY agenda_entregas.horario ASC
+    """, conn, params=(hoje,))
+
+    conn.close()
+    return df
+
+
+def concluir_item_agenda(item_id):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE agenda_entregas
+        SET status = 'Concluído'
+        WHERE id = ?
+    """, (item_id,))
+
+    conn.commit()
+    conn.close()
+
+
+def resolver_email_responsavel(responsavel):
+    responsavel = (responsavel or "").strip()
+
+    if "@" in responsavel:
+        return responsavel
+
+    chave = responsavel.lower().split()[0] if responsavel else ""
+    return EMAIL_RESPONSAVEIS.get(chave)
+
+
+def enviar_email_nova_campanha(cliente, marca, campanha, responsavel, inicio, prazo_pagamento, status, drive):
+    destinatario = resolver_email_responsavel(responsavel)
+
+    if not destinatario:
+        return False, "Responsável sem e-mail configurado."
+
+    try:
+        config_email = st.secrets.get("email", {})
+        remetente = config_email.get("remetente")
+        senha_app = config_email.get("senha_app")
+        smtp_server = config_email.get("smtp_server", "smtp.gmail.com")
+        smtp_port = int(config_email.get("smtp_port", 587))
+        link_hub = config_email.get("link_hub", "")
+
+        if not remetente or not senha_app:
+            return False, "E-mail não configurado no Streamlit Secrets."
+
+        assunto = f"Nova campanha atribuída no Zoy Hub: {campanha}"
+
+        corpo = f"""
+Olá!
+
+Uma nova campanha foi cadastrada no Zoy Hub sob sua responsabilidade.
+
+Campanha: {campanha}
+Cliente/Agência: {cliente}
+Marca: {marca if marca else '-'}
+Mês de início: {inicio if inicio else '-'}
+Prazo de pagamento: {prazo_pagamento if prazo_pagamento else '-'}
+Status inicial: {status}
+
+Acesse o Zoy Hub para acompanhar os detalhes, squad, contratos, agenda e observações.
+{link_hub}
+
+Zoy Hub
+"""
+
+        msg = MIMEMultipart()
+        msg["From"] = remetente
+        msg["To"] = destinatario
+        msg["Subject"] = assunto
+        msg.attach(MIMEText(corpo, "plain", "utf-8"))
+
+        servidor = smtplib.SMTP(smtp_server, smtp_port)
+        servidor.starttls()
+        servidor.login(remetente, senha_app)
+        servidor.sendmail(remetente, destinatario, msg.as_string())
+        servidor.quit()
+
+        return True, f"E-mail enviado para {destinatario}."
+
+    except Exception as erro:
+        return False, f"Não foi possível enviar o e-mail: {erro}"
+
 
 def buscar_influenciadores_por_campanha(campanha_id):
     conn = conectar()
@@ -787,6 +955,29 @@ if pagina == "Dashboard":
     st.title("Dashboard de Campanhas")
     st.markdown('<div class="sub">Central executiva de acompanhamento das campanhas da Agência Zoy</div>', unsafe_allow_html=True)
 
+    agenda_hoje_df = buscar_agenda_hoje()
+
+    st.subheader("Entregas e postagens de hoje")
+
+    if agenda_hoje_df.empty:
+        st.info("Nenhuma entrega ou postagem prevista para hoje.")
+    else:
+        for _, item in agenda_hoje_df.iterrows():
+            st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+            st.write(f"**{item['horario'] if item['horario'] else '-'} | {item['tipo']}**")
+            st.write(f"**Campanha:** {item['campanha']}")
+            st.write(f"**Marca:** {item['marca'] if item['marca'] else '-'}")
+            st.write(f"**Influenciador:** {item['influenciador'] if item['influenciador'] else '-'}")
+            st.write(f"**Responsável:** {item['responsavel'] if item['responsavel'] else '-'}")
+            st.write(f"**Status:** {item['status']}")
+
+            if item["descricao"]:
+                st.caption(item["descricao"])
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+
     total = len(campanhas_df)
     ativas = len(campanhas_df[~campanhas_df["status"].isin(["Finalizado", "Cancelado"])]) if total > 0 else 0
     investimento = campanhas_df["valor"].sum() if total > 0 else 0
@@ -999,6 +1190,22 @@ elif pagina == "Nova Campanha":
                         influ["status_contrato"],
                         influ["observacoes"]
                     )
+
+            email_enviado, mensagem_email = enviar_email_nova_campanha(
+                cliente,
+                marca,
+                campanha,
+                responsavel,
+                mes_inicio,
+                prazo_pagamento,
+                status,
+                drive
+            )
+
+            if email_enviado:
+                st.info(mensagem_email)
+            else:
+                st.warning(mensagem_email)
 
             st.session_state.qtd_influ_squad = 2
             st.session_state.tipo_campanha_atual = "Individual"
@@ -1215,6 +1422,96 @@ elif pagina == "Detalhe da Campanha":
                 )
 
         st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('<div class="card">', unsafe_allow_html=True)
+        st.subheader("Agenda da Campanha")
+
+        with st.expander("Adicionar item na agenda"):
+            col_ag1, col_ag2 = st.columns(2)
+
+            with col_ag1:
+                tipo_agenda = st.selectbox(
+                    "Tipo",
+                    ["Postagem", "Entrega de roteiro", "Entrega de conteúdo", "Reunião", "Aprovação", "Outro"],
+                    key=f"tipo_agenda_{campanha_id}"
+                )
+
+                data_agenda = st.date_input(
+                    "Data",
+                    key=f"data_agenda_{campanha_id}"
+                )
+
+                horario_agenda = st.text_input(
+                    "Horário",
+                    placeholder="Ex: 14:00",
+                    key=f"horario_agenda_{campanha_id}"
+                )
+
+            with col_ag2:
+                responsavel_agenda = st.text_input(
+                    "Responsável",
+                    value=campanha["responsavel"] if campanha["responsavel"] else "",
+                    key=f"responsavel_agenda_{campanha_id}"
+                )
+
+                influenciador_agenda = st.text_input(
+                    "Influenciador",
+                    placeholder="Ex: @influenciador",
+                    key=f"influ_agenda_{campanha_id}"
+                )
+
+                status_agenda = st.selectbox(
+                    "Status",
+                    ["Pendente", "Concluído", "Atrasado"],
+                    key=f"status_agenda_{campanha_id}"
+                )
+
+            descricao_agenda = st.text_area(
+                "Descrição",
+                placeholder="Ex: Postagem do Reels / envio do roteiro / prazo de aprovação",
+                key=f"descricao_agenda_{campanha_id}"
+            )
+
+            if st.button("Salvar item na agenda", key=f"salvar_agenda_{campanha_id}"):
+                salvar_item_agenda(
+                    campanha_id,
+                    tipo_agenda,
+                    str(data_agenda),
+                    horario_agenda,
+                    responsavel_agenda,
+                    influenciador_agenda,
+                    descricao_agenda,
+                    status_agenda
+                )
+                st.success("Item adicionado na agenda.")
+                st.rerun()
+
+        agenda_df = buscar_agenda_campanha(campanha_id)
+
+        if agenda_df.empty:
+            st.info("Nenhum item cadastrado na agenda desta campanha ainda.")
+        else:
+            for _, item in agenda_df.iterrows():
+                st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+
+                st.write(f"**{item['data']} | {item['horario'] if item['horario'] else '-'} | {item['tipo']}**")
+                st.write(f"**Influenciador:** {item['influenciador'] if item['influenciador'] else '-'}")
+                st.write(f"**Responsável:** {item['responsavel'] if item['responsavel'] else '-'}")
+                st.write(f"**Status:** {item['status']}")
+
+                if item["descricao"]:
+                    st.caption(item["descricao"])
+
+                if item["status"] != "Concluído":
+                    if st.button("Marcar como concluído", key=f"concluir_agenda_{item['id']}"):
+                        concluir_item_agenda(int(item["id"]))
+                        st.success("Item concluído.")
+                        st.rerun()
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+        st.markdown('</div>', unsafe_allow_html=True)
+
         col_squad, col_status = st.columns([1.3, 1])
 
         with col_squad:
