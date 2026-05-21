@@ -1024,7 +1024,7 @@ elif pagina == "Campanhas":
         )
 
         filtro_responsavel = st.selectbox(
-            "Filtrar por responsável",
+            "Filtrar campanhas por responsável",
             ["Todos"] + responsaveis
         )
 
@@ -1101,14 +1101,43 @@ elif pagina == "Detalhe da Campanha":
 
     if campanhas_df.empty:
         st.info("Nenhuma campanha cadastrada ainda.")
-    else:
-        campanhas_dict = {
-            f"{row['campanha']} | {row['marca'] if row['marca'] else row['cliente']}": int(row["id"])
-            for _, row in campanhas_df.iterrows()
-        }
 
-        escolha = st.selectbox("Selecione a campanha", list(campanhas_dict.keys()))
-        campanha_id = campanhas_dict[escolha]
+    else:
+        responsaveis = sorted(
+            campanhas_df["responsavel"]
+            .fillna("")
+            .replace("", "Sem responsável")
+            .unique()
+            .tolist()
+        )
+
+        filtro_responsavel_detalhe = st.selectbox(
+            "Filtrar por responsável",
+            ["Todos"] + responsaveis,
+            key="filtro_responsavel_detalhe"
+        )
+
+        if filtro_responsavel_detalhe != "Todos":
+            if filtro_responsavel_detalhe == "Sem responsável":
+                campanhas_df = campanhas_df[
+                    campanhas_df["responsavel"].fillna("").str.strip() == ""
+                ]
+            else:
+                campanhas_df = campanhas_df[
+                    campanhas_df["responsavel"] == filtro_responsavel_detalhe
+                ]
+
+        if campanhas_df.empty:
+            st.info("Nenhuma campanha encontrada para esse responsável.")
+
+        else:
+            campanhas_dict = {
+                f"{row['campanha']} | {row['marca'] if row['marca'] else row['cliente']}": int(row["id"])
+                for _, row in campanhas_df.iterrows()
+            }
+
+            escolha = st.selectbox("Selecione a campanha", list(campanhas_dict.keys()))
+            campanha_id = campanhas_dict[escolha]
 
         campanha = campanhas_df[campanhas_df["id"] == campanha_id].iloc[0]
         squad_df = buscar_influenciadores_por_campanha(campanha_id)
