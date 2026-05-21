@@ -1063,22 +1063,38 @@ if pagina == "Dashboard":
 
     st.subheader("Entregas e postagens de hoje")
 
-    if agenda_hoje_df.empty:
-        st.info("Nenhuma entrega ou postagem prevista para hoje.")
-    else:
-        for _, item in agenda_hoje_df.iterrows():
-            st.markdown('<div class="mini-card">', unsafe_allow_html=True)
-            st.write(f"**{item['horario'] if item['horario'] else '-'} | {item['tipo']}**")
-            st.write(f"**Campanha:** {item['campanha']}")
-            st.write(f"**Marca:** {item['marca'] if item['marca'] else '-'}")
-            st.write(f"**Influenciador:** {item['influenciador'] if item['influenciador'] else '-'}")
-            st.write(f"**Responsável:** {item['responsavel'] if item['responsavel'] else '-'}")
-            st.write(f"**Status:** {item['status']}")
+if agenda_hoje_df.empty:
+    st.info("Nenhuma entrega ou postagem prevista para hoje.")
+else:
+    mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
 
-            if item["descricao"]:
-                st.caption(item["descricao"])
+    df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
 
-            st.markdown('</div>', unsafe_allow_html=True)
+    st.dataframe(
+        df_exibicao[["horario", "tipo", "campanha", "influenciador", "responsavel", "status"]]
+        .rename(columns={
+            "horario": "Horário",
+            "tipo": "Tipo",
+            "campanha": "Campanha",
+            "influenciador": "Influenciador",
+            "responsavel": "Responsável",
+            "status": "Status"
+        }),
+        use_container_width=True,
+        hide_index=True
+    )
+
+    total_extra = len(agenda_hoje_df) - 4
+
+    if total_extra > 0:
+        if not mostrar_tudo:
+            if st.button(f"Ver mais {total_extra} entregas"):
+                st.session_state["mostrar_agenda_completa"] = True
+                st.rerun()
+        else:
+            if st.button("Ver menos"):
+                st.session_state["mostrar_agenda_completa"] = False
+                st.rerun()
 
     st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
 
