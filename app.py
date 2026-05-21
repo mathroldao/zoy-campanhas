@@ -754,7 +754,31 @@ def concluir_item_agenda(item_id):
 
     conn.commit()
     conn.close()
+def excluir_agenda(item_id):
+    conn = conectar()
+    cursor = conn.cursor()
 
+    cursor.execute("""
+        DELETE FROM agenda_entregas
+        WHERE id = ?
+    """, (item_id,))
+
+    conn.commit()
+    conn.close()
+
+
+def atualizar_agenda(item_id, horario, tipo, status, descricao):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE agenda_entregas
+        SET horario = ?, tipo = ?, status = ?, descricao = ?
+        WHERE id = ?
+    """, (horario, tipo, status, descricao, item_id))
+
+    conn.commit()
+    conn.close()
 
 def resolver_email_responsavel(responsavel):
     responsavel = (responsavel or "").strip()
@@ -1083,7 +1107,37 @@ else:
         use_container_width=True,
         hide_index=True
     )
+    st.markdown("### Gerenciar agenda")
 
+    agenda_opcoes = df_exibicao.apply(
+        lambda x: f"{x['campanha']} | {x['influenciador']} | {x['tipo']} | {x['horario']}",
+        axis=1
+    ).tolist()
+
+    agenda_ids = agenda_hoje_df["id"].head(4).tolist() if not mostrar_tudo else agenda_hoje_df["id"].tolist()
+
+    agenda_selecionada = st.selectbox(
+        "Selecione uma entrega",
+        options=list(zip(agenda_ids, agenda_opcoes)),
+        format_func=lambda x: x[1]
+    )
+
+    item_id = agenda_selecionada[0]
+
+    col_ag1, col_ag2, col_ag3 = st.columns(3)
+
+    with col_ag1:
+        if st.button("Concluir"):
+            concluir_item_agenda(item_id)
+            st.rerun()
+
+    with col_ag2:
+        if st.button("Excluir"):
+            excluir_agenda(item_id)
+            st.rerun()
+
+    with col_ag3:
+        editar_agenda = st.button("Editar")
     total_extra = len(agenda_hoje_df) - 4
 
     if total_extra > 0:
