@@ -1085,14 +1085,14 @@ if pagina == "Dashboard":
 
     agenda_hoje_df = buscar_agenda_hoje()
 
-st.subheader("Entregas e postagens de hoje")
+    st.subheader("Entregas e postagens de hoje")
 
-if agenda_hoje_df.empty:
-    st.info("Nenhuma entrega ou postagem prevista para hoje.")
+    if agenda_hoje_df.empty:
+        st.info("Nenhuma entrega ou postagem prevista para hoje.")
 
-else:
-    mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
-    df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
+    else:
+        mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
+        df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
 
     st.dataframe(
         df_exibicao[["horario", "tipo", "campanha", "influenciador", "responsavel", "status"]]
