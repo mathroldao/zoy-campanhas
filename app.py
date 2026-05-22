@@ -1094,7 +1094,7 @@ if pagina == "Dashboard":
         mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
         df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
 
-            st.dataframe(
+    st.dataframe(
             df_exibicao,
             use_container_width=True,
             hide_index=True
