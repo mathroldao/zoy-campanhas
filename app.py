@@ -1085,14 +1085,14 @@ if pagina == "Dashboard":
 
     agenda_hoje_df = buscar_agenda_hoje()
 
-    st.subheader("Entregas e postagens de hoje")
+st.subheader("Entregas e postagens de hoje")
 
-    if agenda_hoje_df.empty:
-            st.info("Nenhuma entrega ou postagem prevista para hoje.")
-    else:
-            mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
+if agenda_hoje_df.empty:
+    st.info("Nenhuma entrega ou postagem prevista para hoje.")
 
-            df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
+else:
+    mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
+    df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
 
     st.dataframe(
         df_exibicao[["horario", "tipo", "campanha", "influenciador", "responsavel", "status"]]
@@ -1107,38 +1107,6 @@ if pagina == "Dashboard":
         use_container_width=True,
         hide_index=True
     )
-
-    st.markdown("### Gerenciar agenda")
-
-    agenda_opcoes = df_exibicao.apply(
-        lambda x: f"{x['campanha']} | {x['influenciador']} | {x['tipo']} | {x['horario']}",
-        axis=1
-    ).tolist()
-
-    agenda_ids = agenda_hoje_df["id"].head(4).tolist() if not mostrar_tudo else agenda_hoje_df["id"].tolist()
-
-    agenda_selecionada = st.selectbox(
-        "Selecione uma entrega",
-        options=list(zip(agenda_ids, agenda_opcoes)),
-        format_func=lambda x: x[1]
-    )
-
-    item_id = agenda_selecionada[0]
-
-    col_ag1, col_ag2, col_ag3 = st.columns(3)
-
-    with col_ag1:
-        if st.button("Concluir"):
-            concluir_item_agenda(item_id)
-            st.rerun()
-
-    with col_ag2:
-        if st.button("Excluir"):
-            excluir_agenda(item_id)
-            st.rerun()
-
-    with col_ag3:
-        editar_agenda = st.button("Editar")
 
     total_extra = len(agenda_hoje_df) - 4
 
