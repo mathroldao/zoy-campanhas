@@ -1083,36 +1083,6 @@ if pagina == "Dashboard":
     st.title("Dashboard de Campanhas")
     st.markdown('<div class="sub">Central executiva de acompanhamento das campanhas da Agência Zoy</div>', unsafe_allow_html=True)
 
-    agenda_hoje_df = buscar_agenda_hoje()
-
-    st.subheader("Entregas e postagens de hoje")
-
-if agenda_hoje_df.empty:
-    st.info("Nenhuma entrega ou postagem prevista para hoje.")
-
-else:
-    mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
-    df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
-
-    st.dataframe(
-        df_exibicao,
-        use_container_width=True,
-        hide_index=True
-    )
-
-    total_extra = len(agenda_hoje_df) - 4
-
-    if total_extra > 0:
-        if not mostrar_tudo:
-            if st.button(f"Ver mais ({total_extra} entregas)"):
-                st.session_state["mostrar_agenda_completa"] = True
-                st.rerun()
-        else:
-            if st.button("Ver menos"):
-                st.session_state["mostrar_agenda_completa"] = False
-                st.rerun()
-
-    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
     total = len(campanhas_df)
     ativas = len(campanhas_df[~campanhas_df["status"].isin(["Finalizado", "Cancelado"])]) if total > 0 else 0
     investimento = campanhas_df["valor"].sum() if total > 0 else 0
@@ -1177,6 +1147,70 @@ else:
                     x=0.95,
                     font=dict(color="#111827", size=11)
                 ),
+                margin=dict(l=0, r=0, t=0, b=0),
+                height=280
+            )
+
+            st.markdown('<div class="card">', unsafe_allow_html=True)
+            st.plotly_chart(fig, use_container_width=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    with col_atendimento:
+        st.subheader("Visão geral por atendimento")
+
+        if campanhas_df.empty or "responsavel" not in campanhas_df.columns:
+            st.info("Nenhum responsável cadastrado ainda.")
+        else:
+            resp_df = (
+                campanhas_df[campanhas_df["responsavel"].fillna("") != ""]
+                .groupby("responsavel")
+                .size()
+                .reset_index(name="campanhas")
+                .sort_values("campanhas", ascending=False)
+            )
+
+            if resp_df.empty:
+                st.info("Nenhum responsável cadastrado ainda.")
+            else:
+                for _, r in resp_df.iterrows():
+                    st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+                    st.markdown(f'<div class="card-title">{r["responsavel"]}</div>', unsafe_allow_html=True)
+                    st.markdown(f'<div class="big-number">{int(r["campanhas"])}</div>', unsafe_allow_html=True)
+                    st.markdown('<div class="small-muted">campanha(s) sob responsabilidade</div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+    st.subheader("Campanhas recentes")
+
+    if not campanhas_df.empty:
+        df_view = campanhas_df[["cliente", "marca", "campanha", "responsavel", "valor", "inicio", "prazo_pagamento", "status"]].copy()
+        df_view = df_view.rename(columns={"cliente": "cliente/agência", "inicio": "mês_inicio"})
+        df_view["valor"] = df_view["valor"].apply(formatar_moeda)
+        st.dataframe(df_view, use_container_width=True, hide_index=True)
+    else:
+        st.info("Nenhuma campanha cadastrada ainda.")
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+    st.caption("Ferramentas administrativas")
+
+    admin1, admin2, admin3 = st.columns([1, 1, 6])
+
+    with admin1:
+        st.download_button(
+            label="Backup campanhas",
+            data=campanhas_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="backup_campanhas_zoy.csv",
+            mime="text/csv"
+        )
+
+    with admin2:
+        st.download_button(
+            label="Backup influenciadores",
+            data=influ_df.to_csv(index=False).encode("utf-8-sig"),
+            file_name="backup_influenciadores_zoy.csv",
+            mime="text/csv"
+        )
+
                 margin=dict(l=0, r=0, t=0, b=0),
                 height=280
             )
