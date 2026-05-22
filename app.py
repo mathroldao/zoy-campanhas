@@ -1087,22 +1087,20 @@ if pagina == "Dashboard":
 
     st.subheader("Entregas e postagens de hoje")
 
-    if agenda_hoje_df.empty:
-        st.info("Nenhuma entrega ou postagem prevista para hoje.")
+if agenda_hoje_df.empty:
+    st.info("Nenhuma entrega ou postagem prevista para hoje.")
 
-    else:
-        mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
-        df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
+else:
+    mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
+    df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
 
     st.dataframe(
-            df_exibicao,
-            use_container_width=True,
-            hide_index=True
-        )
+        df_exibicao,
+        use_container_width=True,
+        hide_index=True
+    )
 
-    total_extra = len(agenda_hoje_df) - 4
-
-    if total_extra > 0:
+total_extra = len(agenda_hoje_df) - 4
         if not mostrar_tudo:
             if st.button(f"Ver mais ({total_extra} entregas)"):
                 st.session_state["mostrar_agenda_completa"] = True
