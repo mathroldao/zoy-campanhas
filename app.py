@@ -1100,16 +1100,6 @@ else:
         hide_index=True
     )
 
-total_extra = len(agenda_hoje_df) - 4
-        if not mostrar_tudo:
-            if st.button(f"Ver mais ({total_extra} entregas)"):
-                st.session_state["mostrar_agenda_completa"] = True
-                st.rerun()
-        else:
-            if st.button("Ver menos"):
-                st.session_state["mostrar_agenda_completa"] = False
-                st.rerun()
-
     st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
 
     total = len(campanhas_df)
