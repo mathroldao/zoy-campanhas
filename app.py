@@ -1099,8 +1099,6 @@ if pagina == "Dashboard":
             use_container_width=True,
             hide_index=True
         )
-        hide_index=True
-    )
 
     total_extra = len(agenda_hoje_df) - 4
 
