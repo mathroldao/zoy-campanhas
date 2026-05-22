@@ -1094,17 +1094,11 @@ if pagina == "Dashboard":
         mostrar_tudo = st.session_state.get("mostrar_agenda_completa", False)
         df_exibicao = agenda_hoje_df if mostrar_tudo else agenda_hoje_df.head(4)
 
-    st.dataframe(
-        df_exibicao[["horario", "tipo", "campanha", "influenciador", "responsavel", "status"]]
-        .rename(columns={
-            "horario": "Horário",
-            "tipo": "Tipo",
-            "campanha": "Campanha",
-            "influenciador": "Influenciador",
-            "responsavel": "Responsável",
-            "status": "Status"
-        }),
-        use_container_width=True,
+            st.dataframe(
+            df_exibicao,
+            use_container_width=True,
+            hide_index=True
+        )
         hide_index=True
     )
 
