@@ -272,7 +272,7 @@ div[role="radiogroup"] label:has(input:checked) {
 
 
 def conectar():
-    return supabase
+    return sqlite3.connect(DB_NAME, check_same_thread=False)
 def enviar_email_nova_campanha(responsavel, campanha, cliente, marca, inicio, prazo, status):
     try:
         if responsavel not in EMAIL_RESPONSAVEIS:
