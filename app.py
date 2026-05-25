@@ -272,7 +272,7 @@ div[role="radiogroup"] label:has(input:checked) {
 
 
 def conectar():
-    return sqlite3.connect(DB_NAME, check_same_thread=False)
+    return supabase
 def enviar_email_nova_campanha(responsavel, campanha, cliente, marca, inicio, prazo, status):
     try:
         if responsavel not in EMAIL_RESPONSAVEIS:
@@ -616,9 +616,14 @@ def salvar_campanha(cliente, marca, campanha, responsavel, valor, inicio, prazo_
 
 
 def buscar_campanhas():
-    conn = conectar()
-    df = pd.read_sql_query("SELECT * FROM campanhas ORDER BY id DESC", conn)
-    conn.close()
+    response = supabase.table("campanhas").select("*").order("id", desc=True).execute()
+    df = pd.DataFrame(response.data)
+
+    if df.empty:
+        return pd.DataFrame(columns=[
+            "id", "cliente", "marca", "campanha", "responsavel", "valor",
+            "inicio", "prazo_pagamento", "status", "drive", "briefing", "observacoes"
+        ])
 
     if "prazo_pagamento" not in df.columns:
         df["prazo_pagamento"] = ""
@@ -627,36 +632,23 @@ def buscar_campanhas():
 
     return df
 
-
 def buscar_influenciadores():
-    conn = conectar()
-    df = pd.read_sql_query("""
-        SELECT 
-            influenciadores.id,
-            influenciadores.campanha_id,
-            campanhas.campanha,
-            campanhas.cliente,
-            campanhas.marca,
-            campanhas.responsavel,
-            campanhas.prazo_pagamento,
-            influenciadores.nome,
-            influenciadores.arroba,
-            influenciadores.valor,
-            influenciadores.entregaveis,
-            influenciadores.postagem,
-            influenciadores.status_conteudo,
-            influenciadores.status_contrato,
-            influenciadores.observacoes
-        FROM influenciadores
-        LEFT JOIN campanhas ON influenciadores.campanha_id = campanhas.id
-        ORDER BY influenciadores.id DESC
-    """, conn)
-    conn.close()
+    response = supabase.table("influenciadores").select("*").order("id", desc=True).execute()
+    df = pd.DataFrame(response.data)
+
+    if df.empty:
+        return pd.DataFrame(columns=[
+            "id", "campanha_id", "campanha", "cliente", "marca",
+            "responsavel", "prazo_pagamento", "nome", "arroba",
+            "valor", "entregaveis", "postagem",
+            "status_conteudo", "status_contrato", "observacoes"
+        ])
 
     if "marca" not in df.columns:
         df["marca"] = ""
 
     return df
+    
 def salvar_observacao(campanha_id, usuario, observacao):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
