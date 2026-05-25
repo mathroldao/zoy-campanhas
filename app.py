@@ -5,6 +5,11 @@ import plotly.express as px
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
+from supabase import create_client
+SUPABASE_URL = st.secrets["supabase"]["url"]
+SUPABASE_KEY = st.secrets["supabase"]["key"]
+
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 DB_NAME = "zoy_campanhas.db"
 
@@ -267,7 +272,7 @@ div[role="radiogroup"] label:has(input:checked) {
 
 
 def conectar():
-    return sqlite3.connect(DB_NAME, check_same_thread=False)
+    return supabase
 def enviar_email_nova_campanha(responsavel, campanha, cliente, marca, inicio, prazo, status):
     try:
         if responsavel not in EMAIL_RESPONSAVEIS:
@@ -948,8 +953,7 @@ def validar_login(email, senha):
 
     return usuario is not None
     
-criar_tabelas()
-
+# criar_tabelas()
 if "qtd_influ_squad" not in st.session_state:
     st.session_state.qtd_influ_squad = 2
 
