@@ -5,11 +5,6 @@ import plotly.express as px
 import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
-from supabase import create_client
-SUPABASE_URL = st.secrets["supabase"]["url"]
-SUPABASE_KEY = st.secrets["supabase"]["key"]
-
-supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
 
 DB_NAME = "zoy_campanhas.db"
 
@@ -272,106 +267,9 @@ div[role="radiogroup"] label:has(input:checked) {
 
 
 def conectar():
-    return supabase
-def enviar_email_nova_campanha(responsavel, campanha, cliente, marca, inicio, prazo, status):
-    try:
-        if responsavel not in EMAIL_RESPONSAVEIS:
-            return
+    return sqlite3.connect(DB_NAME, check_same_thread=False)
 
-        destinatario = EMAIL_RESPONSAVEIS[responsavel]
 
-        remetente = st.secrets["email"]["remetente"]
-        senha_app = st.secrets["email"]["senha_app"]
-
-        assunto = "Nova campanha atribuída no Zoy Hub"
-
-        corpo = f"""
-Olá!
-
-Uma nova campanha foi cadastrada no Zoy Hub sob sua responsabilidade.
-
-Campanha: {campanha}
-Cliente/Agência: {cliente}
-Marca: {marca if marca else "-"}
-Mês de início: {inicio}
-Prazo de pagamento: {prazo if prazo else "-"}
-Status inicial: {status}
-
-Acesse o Zoy Hub para acompanhar os detalhes.
-
-Zoy Hub
-        """
-
-        msg = MIMEMultipart()
-        msg["From"] = remetente
-        msg["To"] = destinatario
-        msg["Subject"] = assunto
-
-        msg.attach(MIMEText(corpo, "plain"))
-
-        servidor = smtplib.SMTP("smtp.gmail.com", 587)
-        servidor.starttls()
-        servidor.login(remetente, senha_app)
-        servidor.send_message(msg)
-        servidor.quit()
-
-    except Exception as e:
-        st.warning(f"E-mail não enviado: {e}")
-def restaurar_backup(campanhas_file, influenciadores_file):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    campanhas_df = pd.read_csv(campanhas_file)
-    influ_df = pd.read_csv(influenciadores_file)
-
-    cursor.execute("DELETE FROM influenciadores")
-    cursor.execute("DELETE FROM campanhas")
-
-    for _, row in campanhas_df.iterrows():
-        cursor.execute("""
-            INSERT INTO campanhas (
-                id, cliente, campanha, responsavel, valor, inicio, fim,
-                status, progresso, drive, briefing, observacoes,
-                prazo_pagamento, marca
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            int(row["id"]),
-            row["cliente"] if pd.notna(row["cliente"]) else "",
-            row["campanha"] if pd.notna(row["campanha"]) else "",
-            row["responsavel"] if pd.notna(row["responsavel"]) else "",
-            float(row["valor"]) if pd.notna(row["valor"]) else 0,
-            row["inicio"] if pd.notna(row["inicio"]) else "",
-            row["fim"] if pd.notna(row["fim"]) else "",
-            row["status"] if pd.notna(row["status"]) else "",
-            int(row["progresso"]) if pd.notna(row["progresso"]) else 0,
-            row["drive"] if pd.notna(row["drive"]) else "",
-            row["briefing"] if pd.notna(row["briefing"]) else "",
-            row["observacoes"] if pd.notna(row["observacoes"]) else "",
-            row["prazo_pagamento"] if pd.notna(row["prazo_pagamento"]) else "",
-            row["marca"] if pd.notna(row["marca"]) else ""
-        ))
-
-    for _, row in influ_df.iterrows():
-        cursor.execute("""
-            INSERT INTO influenciadores (
-                id, campanha_id, nome, arroba, valor, entregaveis,
-                postagem, status_conteudo, status_contrato, observacoes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            int(row["id"]),
-            int(row["campanha_id"]),
-            row["nome"] if pd.notna(row["nome"]) else "",
-            row["arroba"] if pd.notna(row["arroba"]) else "",
-            float(row["valor"]) if pd.notna(row["valor"]) else 0,
-            row["entregaveis"] if pd.notna(row["entregaveis"]) else "",
-            row["postagem"] if pd.notna(row["postagem"]) else "",
-            row["status_conteudo"] if pd.notna(row["status_conteudo"]) else "",
-            row["status_contrato"] if pd.notna(row["status_contrato"]) else "",
-            row["observacoes"] if pd.notna(row["observacoes"]) else ""
-        ))
-
-    conn.commit()
-    conn.close()
 def criar_tabelas():
     conn = conectar()
     cursor = conn.cursor()
@@ -509,14 +407,7 @@ STATUS_CAMPANHA = [
     "Finalizado",
     "Cancelado"
 ]
-EMAIL_RESPONSAVEIS = {
-    "Jean": "jean@agenciazoy.com",
-    "Rafaela": "rafaela@agenciazoy.com",
-    "Taila": "taila@agenciazoy.com",
-    "Camila": "camila@agenciazoy.com",
-    "Financeiro": "financeiro@agenciazoy.com",
-    "Matheus": "matheus@agenciazoy.com",
-}
+
 STATUS_CONTEUDO = [
     "Pendente",
     "Recebido",
@@ -616,14 +507,9 @@ def salvar_campanha(cliente, marca, campanha, responsavel, valor, inicio, prazo_
 
 
 def buscar_campanhas():
-    response = supabase.table("campanhas").select("*").order("id", desc=True).execute()
-    df = pd.DataFrame(response.data)
-
-    if df.empty:
-        return pd.DataFrame(columns=[
-            "id", "cliente", "marca", "campanha", "responsavel", "valor",
-            "inicio", "prazo_pagamento", "status", "drive", "briefing", "observacoes"
-        ])
+    conn = conectar()
+    df = pd.read_sql_query("SELECT * FROM campanhas ORDER BY id DESC", conn)
+    conn.close()
 
     if "prazo_pagamento" not in df.columns:
         df["prazo_pagamento"] = ""
@@ -632,23 +518,101 @@ def buscar_campanhas():
 
     return df
 
-def buscar_influenciadores():
-    response = supabase.table("influenciadores").select("*").order("id", desc=True).execute()
-    df = pd.DataFrame(response.data)
 
-    if df.empty:
-        return pd.DataFrame(columns=[
-            "id", "campanha_id", "campanha", "cliente", "marca",
-            "responsavel", "prazo_pagamento", "nome", "arroba",
-            "valor", "entregaveis", "postagem",
-            "status_conteudo", "status_contrato", "observacoes"
-        ])
+def buscar_influenciadores():
+    conn = conectar()
+    df = pd.read_sql_query("""
+        SELECT 
+            influenciadores.id,
+            influenciadores.campanha_id,
+            campanhas.campanha,
+            campanhas.cliente,
+            campanhas.marca,
+            campanhas.responsavel,
+            campanhas.prazo_pagamento,
+            influenciadores.nome,
+            influenciadores.arroba,
+            influenciadores.valor,
+            influenciadores.entregaveis,
+            influenciadores.postagem,
+            influenciadores.status_conteudo,
+            influenciadores.status_contrato,
+            influenciadores.observacoes
+        FROM influenciadores
+        LEFT JOIN campanhas ON influenciadores.campanha_id = campanhas.id
+        ORDER BY influenciadores.id DESC
+    """, conn)
+    conn.close()
 
     if "marca" not in df.columns:
         df["marca"] = ""
 
     return df
-    
+
+
+def restaurar_backup(campanhas_file, influenciadores_file):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    campanhas_df = pd.read_csv(campanhas_file)
+    influ_df = pd.read_csv(influenciadores_file)
+
+    cursor.execute("DELETE FROM influenciadores")
+    cursor.execute("DELETE FROM campanhas")
+
+    for _, row in campanhas_df.iterrows():
+        cursor.execute("""
+            INSERT INTO campanhas (
+                id, cliente, campanha, responsavel, valor, inicio, fim,
+                status, progresso, drive, briefing, observacoes,
+                prazo_pagamento, marca
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            int(row["id"]),
+            row["cliente"] if "cliente" in row and pd.notna(row["cliente"]) else "",
+            row["campanha"] if "campanha" in row and pd.notna(row["campanha"]) else "",
+            row["responsavel"] if "responsavel" in row and pd.notna(row["responsavel"]) else "",
+            float(row["valor"]) if "valor" in row and pd.notna(row["valor"]) else 0,
+            row["inicio"] if "inicio" in row and pd.notna(row["inicio"]) else "",
+            row["fim"] if "fim" in row and pd.notna(row["fim"]) else "",
+            row["status"] if "status" in row and pd.notna(row["status"]) else "",
+            int(row["progresso"]) if "progresso" in row and pd.notna(row["progresso"]) else 0,
+            row["drive"] if "drive" in row and pd.notna(row["drive"]) else "",
+            row["briefing"] if "briefing" in row and pd.notna(row["briefing"]) else "",
+            row["observacoes"] if "observacoes" in row and pd.notna(row["observacoes"]) else "",
+            row["prazo_pagamento"] if "prazo_pagamento" in row and pd.notna(row["prazo_pagamento"]) else "",
+            row["marca"] if "marca" in row and pd.notna(row["marca"]) else ""
+        ))
+
+    for _, row in influ_df.iterrows():
+        cursor.execute("""
+            INSERT INTO influenciadores (
+                id, campanha_id, nome, arroba, valor, entregaveis,
+                postagem, status_conteudo, status_contrato, observacoes
+            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        """, (
+            int(row["id"]),
+            int(row["campanha_id"]),
+            row["nome"] if "nome" in row and pd.notna(row["nome"]) else "",
+            row["arroba"] if "arroba" in row and pd.notna(row["arroba"]) else "",
+            float(row["valor"]) if "valor" in row and pd.notna(row["valor"]) else 0,
+            row["entregaveis"] if "entregaveis" in row and pd.notna(row["entregaveis"]) else "",
+            row["postagem"] if "postagem" in row and pd.notna(row["postagem"]) else "",
+            row["status_conteudo"] if "status_conteudo" in row and pd.notna(row["status_conteudo"]) else "",
+            row["status_contrato"] if "status_contrato" in row and pd.notna(row["status_contrato"]) else "",
+            row["observacoes"] if "observacoes" in row and pd.notna(row["observacoes"]) else ""
+        ))
+
+    cursor.execute("DELETE FROM influenciadores_base")
+    cursor.execute("""
+    INSERT OR IGNORE INTO influenciadores_base (arroba)
+    SELECT DISTINCT arroba FROM influenciadores
+    WHERE arroba IS NOT NULL AND arroba != ''
+    """)
+
+    conn.commit()
+    conn.close()
+
 def salvar_observacao(campanha_id, usuario, observacao):
     conn = sqlite3.connect(DB_NAME)
     cursor = conn.cursor()
@@ -751,31 +715,7 @@ def concluir_item_agenda(item_id):
 
     conn.commit()
     conn.close()
-def excluir_agenda(item_id):
-    conn = conectar()
-    cursor = conn.cursor()
 
-    cursor.execute("""
-        DELETE FROM agenda_entregas
-        WHERE id = ?
-    """, (item_id,))
-
-    conn.commit()
-    conn.close()
-
-
-def atualizar_agenda(item_id, horario, tipo, status, descricao):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        UPDATE agenda_entregas
-        SET horario = ?, tipo = ?, status = ?, descricao = ?
-        WHERE id = ?
-    """, (horario, tipo, status, descricao, item_id))
-
-    conn.commit()
-    conn.close()
 
 def resolver_email_responsavel(responsavel):
     responsavel = (responsavel or "").strip()
@@ -927,22 +867,26 @@ def excluir_campanha(campanha_id):
     conn.close()
 
 def validar_login(email, senha):
-    usuarios = {
-        "jean@agenciazoy.com": "zoy2026",
-        "rafaela@agenciazoy.com": "zoy2026",
-        "taila@agenciazoy.com": "zoy2026",
-        "camila@agenciazoy.com": "zoy2026",
-        "contato@agenciazoy.com": "zoy2026",
-        "matheus@agenciazoy.com": "zoy2026",
-        "financeiro@agenciazoy.com": "zoy2026",
-    }
-
     email = (email or "").strip().lower()
     senha = (senha or "").strip()
 
-    return usuarios.get(email) == senha
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+    SELECT email FROM usuarios
+    WHERE email = ?
+    AND senha = ?
+    AND ativo = 1
+    """, (email, senha))
+
+    usuario = cursor.fetchone()
+    conn.close()
+
+    return usuario is not None
     
-# criar_tabelas()
+criar_tabelas()
+
 if "qtd_influ_squad" not in st.session_state:
     st.session_state.qtd_influ_squad = 2
 
@@ -1076,6 +1020,29 @@ if pagina == "Dashboard":
     st.title("Dashboard de Campanhas")
     st.markdown('<div class="sub">Central executiva de acompanhamento das campanhas da Agência Zoy</div>', unsafe_allow_html=True)
 
+    agenda_hoje_df = buscar_agenda_hoje()
+
+    st.subheader("Entregas e postagens de hoje")
+
+    if agenda_hoje_df.empty:
+        st.info("Nenhuma entrega ou postagem prevista para hoje.")
+    else:
+        for _, item in agenda_hoje_df.iterrows():
+            st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+            st.write(f"**{item['horario'] if item['horario'] else '-'} | {item['tipo']}**")
+            st.write(f"**Campanha:** {item['campanha']}")
+            st.write(f"**Marca:** {item['marca'] if item['marca'] else '-'}")
+            st.write(f"**Influenciador:** {item['influenciador'] if item['influenciador'] else '-'}")
+            st.write(f"**Responsável:** {item['responsavel'] if item['responsavel'] else '-'}")
+            st.write(f"**Status:** {item['status']}")
+
+            if item["descricao"]:
+                st.caption(item["descricao"])
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+
     total = len(campanhas_df)
     ativas = len(campanhas_df[~campanhas_df["status"].isin(["Finalizado", "Cancelado"])]) if total > 0 else 0
     investimento = campanhas_df["valor"].sum() if total > 0 else 0
@@ -1182,7 +1149,6 @@ if pagina == "Dashboard":
         st.dataframe(df_view, use_container_width=True, hide_index=True)
     else:
         st.info("Nenhuma campanha cadastrada ainda.")
-
     st.markdown("<br><br>", unsafe_allow_html=True)
     st.caption("Ferramentas administrativas")
 
@@ -1203,8 +1169,33 @@ if pagina == "Dashboard":
             file_name="backup_influenciadores_zoy.csv",
             mime="text/csv"
         )
-            
-if pagina == "Nova Campanha":
+
+    st.markdown("<br><br>", unsafe_allow_html=True)
+
+    with st.expander("Restaurar backup"):
+        st.caption("Use esta área somente para recuperar dados a partir dos arquivos CSV de backup.")
+
+        backup_campanhas = st.file_uploader(
+            "Arquivo CSV de campanhas",
+            type=["csv"],
+            key="upload_backup_campanhas"
+        )
+
+        backup_influenciadores = st.file_uploader(
+            "Arquivo CSV de influenciadores",
+            type=["csv"],
+            key="upload_backup_influenciadores"
+        )
+
+        if st.button("Restaurar backup agora"):
+            if backup_campanhas is None or backup_influenciadores is None:
+                st.error("Envie os dois arquivos de backup antes de restaurar.")
+            else:
+                restaurar_backup(backup_campanhas, backup_influenciadores)
+                st.success("Backup restaurado com sucesso.")
+                st.rerun()
+
+elif pagina == "Nova Campanha":
     st.title("Nova Campanha")
     st.markdown('<div class="sub">Cadastre uma campanha nova e já monte o squad inicial</div>', unsafe_allow_html=True)
 
@@ -1216,11 +1207,7 @@ if pagina == "Nova Campanha":
         cliente = st.text_input("Cliente/Agência", key="nova_cliente")
         marca = st.text_input("Marca", key="nova_marca")
         campanha = st.text_input("Nome da campanha", key="nova_campanha")
-        responsavel = st.selectbox(
-    "Responsável interno",
-    ["Jean", "Rafaela", "Taila", "Camila", "Financeiro", "Matheus"],
-    key="nova_responsavel"
-)
+        responsavel = st.text_input("Responsável interno", key="nova_responsavel")
         valor = st.number_input("Valor total da campanha", min_value=0.0, step=100.0, key="nova_valor")
 
     with col2:
@@ -1281,7 +1268,7 @@ if pagina == "Nova Campanha":
                 cliente, marca, campanha, responsavel, valor, mes_inicio,
                 prazo_pagamento, status, drive, briefing, observacoes
             )
-            
+
             for influ in influenciadores_temp:
                 if influ["arroba"]:
                     salvar_influenciador(
@@ -1294,28 +1281,21 @@ if pagina == "Nova Campanha":
                         influ["observacoes"]
                     )
 
-            try:
-                resultado_email = enviar_email_nova_campanha(
-                    cliente,
-                    marca,
-                    campanha,
-                    responsavel,
-                    mes_inicio,
-                    prazo_pagamento,
-                    status,
-                    drive
-                )
+            email_enviado, mensagem_email = enviar_email_nova_campanha(
+                cliente,
+                marca,
+                campanha,
+                responsavel,
+                mes_inicio,
+                prazo_pagamento,
+                status,
+                drive
+            )
 
-                if resultado_email:
-                    email_enviado, mensagem_email = resultado_email
-
-                    if email_enviado:
-                        st.info(mensagem_email)
-                    else:
-                        st.warning(mensagem_email)
-
-            except Exception as e:
-                st.warning(f"Campanha salva, mas o e-mail não foi enviado: {e}")
+            if email_enviado:
+                st.info(mensagem_email)
+            else:
+                st.warning(mensagem_email)
 
             st.session_state.qtd_influ_squad = 2
             st.session_state.tipo_campanha_atual = "Individual"
@@ -1689,13 +1669,7 @@ elif pagina == "Detalhe da Campanha":
                     edit_cliente = st.text_input("Cliente/Agência", value=campanha["cliente"])
                     edit_marca = st.text_input("Marca", value=campanha["marca"] if campanha["marca"] else "")
                     edit_campanha = st.text_input("Nome da campanha", value=campanha["campanha"])
-                    responsaveis_fixos = ["Jean", "Rafaela", "Taila", "Camila", "Financeiro", "Matheus"]
-                    edit_responsavel = st.selectbox(
-                        "Responsável interno",
-                        responsaveis_fixos,
-                        index=responsaveis_fixos.index(campanha["responsavel"]) if campanha["responsavel"] in responsaveis_fixos else 0
-                    )
-                    
+                    edit_responsavel = st.text_input("Responsável interno", value=campanha["responsavel"])
                     edit_valor = st.number_input("Valor total", min_value=0.0, step=100.0, value=float(campanha["valor"]))
                     edit_mes = st.text_input("Mês de início", value=campanha["inicio"])
                     edit_prazo = st.text_input("Prazo de pagamento", value=campanha["prazo_pagamento"] if campanha["prazo_pagamento"] else "")
