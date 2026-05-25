@@ -927,23 +927,20 @@ def excluir_campanha(campanha_id):
     conn.close()
 
 def validar_login(email, senha):
+    usuarios = {
+        "jean@agenciazoy.com": "zoy2026",
+        "rafaela@agenciazoy.com": "zoy2026",
+        "taila@agenciazoy.com": "zoy2026",
+        "camila@agenciazoy.com": "zoy2026",
+        "contato@agenciazoy.com": "zoy2026",
+        "matheus@agenciazoy.com": "zoy2026",
+        "financeiro@agenciazoy.com": "zoy2026",
+    }
+
     email = (email or "").strip().lower()
     senha = (senha or "").strip()
 
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    SELECT email FROM usuarios
-    WHERE email = ?
-    AND senha = ?
-    AND ativo = 1
-    """, (email, senha))
-
-    usuario = cursor.fetchone()
-    conn.close()
-
-    return usuario is not None
+    return usuarios.get(email) == senha
     
 # criar_tabelas()
 if "qtd_influ_squad" not in st.session_state:
