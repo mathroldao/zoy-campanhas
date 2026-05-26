@@ -325,6 +325,17 @@ def criar_tabelas():
     
     """)
     cursor.execute("""
+    CREATE TABLE IF NOT EXISTS observacoes_contrato (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        influenciador_id INTEGER,
+        usuario TEXT,
+        observacao TEXT,
+        data TEXT,
+        FOREIGN KEY(influenciador_id) REFERENCES influenciadores(id)
+    )
+    """)
+
+    cursor.execute("""
     CREATE TABLE IF NOT EXISTS usuarios (
         id INTEGER PRIMARY KEY AUTOINCREMENT,
         email TEXT UNIQUE,
@@ -882,6 +893,51 @@ def atualizar_status_contrato(influenciador_id, novo_status):
 
     conn.commit()
     conn.close()
+
+
+def salvar_observacao_contrato(influenciador_id, usuario, observacao):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    from datetime import datetime
+    data = datetime.now().strftime("%d/%m/%Y %H:%M")
+
+    cursor.execute("""
+        INSERT INTO observacoes_contrato (influenciador_id, usuario, observacao, data)
+        VALUES (?, ?, ?, ?)
+    """, (influenciador_id, usuario, observacao, data))
+
+    conn.commit()
+    conn.close()
+
+
+def buscar_observacoes_contrato(influenciador_id, limite=2):
+    conn = conectar()
+
+    df = pd.read_sql_query("""
+        SELECT usuario, observacao, data
+        FROM observacoes_contrato
+        WHERE influenciador_id = ?
+        ORDER BY id DESC
+        LIMIT ?
+    """, conn, params=(influenciador_id, limite))
+
+    conn.close()
+    return df
+
+
+def contar_observacoes_contrato(influenciador_id):
+    conn = conectar()
+    cursor = conn.cursor()
+    cursor.execute("""
+        SELECT COUNT(*)
+        FROM observacoes_contrato
+        WHERE influenciador_id = ?
+    """, (influenciador_id,))
+    total = cursor.fetchone()[0]
+    conn.close()
+    return total
+
 
 def validar_login(email, senha):
     email = (email or "").strip().lower()
@@ -1831,19 +1887,22 @@ elif pagina == "Contratos":
                 "coluna": col1,
                 "cor": "#F59E0B",
                 "bg": "rgba(245,158,11,0.08)",
-                "border": "rgba(245,158,11,0.28)"
+                "border": "rgba(245,158,11,0.28)",
+                "icone": "Pendente"
             },
             "Enviado": {
                 "coluna": col2,
                 "cor": "#2563EB",
                 "bg": "rgba(37,99,235,0.07)",
-                "border": "rgba(37,99,235,0.22)"
+                "border": "rgba(37,99,235,0.22)",
+                "icone": "Enviado"
             },
             "Assinado": {
                 "coluna": col3,
                 "cor": "#16A34A",
                 "bg": "rgba(22,163,74,0.07)",
-                "border": "rgba(22,163,74,0.22)"
+                "border": "rgba(22,163,74,0.22)",
+                "icone": "Assinado"
             }
         }
 
@@ -1851,7 +1910,13 @@ elif pagina == "Contratos":
             valor = item[campo] if campo in item.index else ""
             if pd.isna(valor) or valor == "":
                 return "-"
-            return valor
+            return str(valor)
+
+        def texto_curto(valor, limite=58):
+            valor = str(valor or "-")
+            if valor == "nan":
+                return "-"
+            return valor if len(valor) <= limite else valor[:limite - 3] + "..."
 
         for status_nome, config in colunas_status.items():
             coluna = config["coluna"]
@@ -1868,12 +1933,11 @@ elif pagina == "Contratos":
                         background:{bg};
                         border:1px solid {border};
                         border-radius:22px;
-                        padding:18px 18px 12px 18px;
-                        margin-bottom:16px;
-                        min-height:80px;
+                        padding:16px 16px 12px 16px;
+                        margin-bottom:14px;
                     ">
                         <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
-                            <div style="font-size:22px; font-weight:950; color:{cor};">{status_nome}</div>
+                            <div style="font-size:21px; font-weight:950; color:{cor};">{status_nome}</div>
                             <div style="
                                 background:white;
                                 border:1px solid {border};
@@ -1894,31 +1958,50 @@ elif pagina == "Contratos":
                     st.info("Nenhum contrato aqui.")
                 else:
                     for _, item in df_status.iterrows():
+                        influ_id = int(item["id"])
+                        obs_total = contar_observacoes_contrato(influ_id)
+                        obs_label = f" • {obs_total} obs" if obs_total else ""
+
                         st.markdown(
                             f"""
                             <div style="
                                 background:#FFFFFF;
                                 border:1px solid rgba(17,24,39,0.10);
                                 border-left:5px solid {cor};
-                                border-radius:20px;
-                                padding:16px 16px 12px 16px;
-                                margin-bottom:14px;
-                                box-shadow:0 10px 24px rgba(17,24,39,0.05);
+                                border-radius:18px;
+                                padding:14px 14px 12px 14px;
+                                margin-bottom:8px;
+                                box-shadow:0 8px 20px rgba(17,24,39,0.045);
                             ">
                                 <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
-                                    <div style="font-size:18px; font-weight:950; color:#111827;">{texto_seguro(item, 'arroba')}</div>
+                                    <div style="font-size:17px; font-weight:950; color:#111827;">{texto_seguro(item, 'arroba')}</div>
                                     <span style="
                                         background:{bg};
                                         color:{cor};
                                         border:1px solid {border};
                                         border-radius:999px;
-                                        padding:4px 9px;
-                                        font-size:12px;
+                                        padding:3px 8px;
+                                        font-size:11px;
                                         font-weight:900;
+                                        white-space:nowrap;
                                     ">{status_nome}</span>
                                 </div>
-                                <div style="height:10px;"></div>
-                                <div style="font-size:14px; line-height:1.65; color:#111827;">
+                                <div style="font-size:13px; color:#374151; margin-top:8px; line-height:1.45;">
+                                    <b>{texto_seguro(item, 'campanha')}</b> • {texto_seguro(item, 'cliente')}<br>
+                                    {texto_curto(texto_seguro(item, 'entregaveis'), 70)}
+                                </div>
+                                <div style="font-size:12px; color:#6B7280; margin-top:8px;">
+                                    Resp.: {texto_seguro(item, 'responsavel')}{obs_label}
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                        with st.expander("Ver mais", expanded=False):
+                            st.markdown(
+                                f"""
+                                <div style="font-size:14px; line-height:1.7; color:#111827;">
                                     <b>Campanha:</b> {texto_seguro(item, 'campanha')}<br>
                                     <b>Cliente:</b> {texto_seguro(item, 'cliente')}<br>
                                     <b>Marca:</b> {texto_seguro(item, 'marca')}<br>
@@ -1926,34 +2009,77 @@ elif pagina == "Contratos":
                                     <b>Entregáveis:</b> {texto_seguro(item, 'entregaveis')}<br>
                                     <b>Prazo:</b> {texto_seguro(item, 'prazo_pagamento')}
                                 </div>
-                            </div>
-                            """,
-                            unsafe_allow_html=True
-                        )
+                                """,
+                                unsafe_allow_html=True
+                            )
 
-                        novo_status = st.selectbox(
-                            "Alterar status do contrato",
-                            STATUS_CONTRATO,
-                            index=STATUS_CONTRATO.index(item["status_contrato"]) if item["status_contrato"] in STATUS_CONTRATO else 0,
-                            key=f"contrato_status_{item['id']}"
-                        )
+                            novo_status = st.selectbox(
+                                "Status do contrato",
+                                STATUS_CONTRATO,
+                                index=STATUS_CONTRATO.index(item["status_contrato"]) if item["status_contrato"] in STATUS_CONTRATO else 0,
+                                key=f"contrato_status_{influ_id}"
+                            )
 
-                        col_btn1, col_btn2 = st.columns([1, 1])
+                            col_btn1, col_btn2 = st.columns([1, 1])
 
-                        with col_btn1:
-                            if st.button("Salvar status", key=f"salvar_status_contrato_{item['id']}"):
-                                atualizar_status_contrato(int(item["id"]), novo_status)
-                                st.success("Status atualizado.")
-                                st.rerun()
-
-                        with col_btn2:
-                            if item["status_contrato"] != "Assinado":
-                                if st.button("Marcar assinado", key=f"assinar_contrato_{item['id']}"):
-                                    atualizar_status_contrato(int(item["id"]), "Assinado")
-                                    st.success("Contrato marcado como assinado.")
+                            with col_btn1:
+                                if st.button("Salvar", key=f"salvar_status_contrato_{influ_id}"):
+                                    atualizar_status_contrato(influ_id, novo_status)
+                                    st.success("Status atualizado.")
                                     st.rerun()
 
-                        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
+                            with col_btn2:
+                                if item["status_contrato"] != "Assinado":
+                                    if st.button("Assinado", key=f"assinar_contrato_{influ_id}"):
+                                        atualizar_status_contrato(influ_id, "Assinado")
+                                        st.success("Contrato marcado como assinado.")
+                                        st.rerun()
+
+                            st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+                            st.caption("Observações do contrato")
+
+                            nova_obs = st.text_area(
+                                "Adicionar observação",
+                                placeholder="Ex: contrato enviado / aguardando assinatura / ajuste solicitado...",
+                                height=70,
+                                key=f"nova_obs_contrato_{influ_id}"
+                            )
+
+                            if st.button("Salvar observação", key=f"salvar_obs_contrato_{influ_id}"):
+                                if nova_obs.strip():
+                                    salvar_observacao_contrato(
+                                        influ_id,
+                                        st.session_state.usuario_logado if "usuario_logado" in st.session_state else "Equipe Zoy",
+                                        nova_obs.strip()
+                                    )
+                                    st.success("Observação salva.")
+                                    st.rerun()
+                                else:
+                                    st.error("Digite uma observação antes de salvar.")
+
+                            obs_df = buscar_observacoes_contrato(influ_id, limite=2)
+
+                            if obs_df.empty:
+                                st.caption("Nenhuma observação ainda.")
+                            else:
+                                for _, obs in obs_df.iterrows():
+                                    st.markdown(
+                                        f"""
+                                        <div style="
+                                            background:#F9FAFB;
+                                            border:1px solid rgba(17,24,39,0.08);
+                                            border-radius:14px;
+                                            padding:10px 12px;
+                                            margin-top:8px;
+                                        ">
+                                            <div style="font-size:12px; color:#6B7280; font-weight:700;">{obs['data']} • {obs['usuario']}</div>
+                                            <div style="font-size:13px; color:#111827; margin-top:4px;">{obs['observacao']}</div>
+                                        </div>
+                                        """,
+                                        unsafe_allow_html=True
+                                    )
+
+                        st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
 
 elif pagina == "Relatórios":
     campanhas_df = buscar_campanhas()
