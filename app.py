@@ -1791,41 +1791,41 @@ elif pagina == "Contratos":
     influ_df = buscar_influenciadores()
 
     st.title("Contratos")
-    st.markdown('<div class="sub">Visão para jurídico e administrativo acompanharem o status dos contratos</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub">Organize os contratos por status, em formato de quadro</div>', unsafe_allow_html=True)
 
     if influ_df.empty:
         st.info("Nenhum influenciador cadastrado ainda.")
     else:
-        total_contratos = len(influ_df)
-        assinados = len(influ_df[influ_df["status_contrato"] == "Assinado"])
-        enviados = len(influ_df[influ_df["status_contrato"] == "Enviado"])
-        nao_enviados = len(influ_df[influ_df["status_contrato"] == "Não enviado"])
+        col1, col2, col3 = st.columns(3)
 
-        col1, col2, col3, col4 = st.columns(4)
-        col1.metric("Total", total_contratos)
-        col2.metric("Assinados", assinados)
-        col3.metric("Enviados", enviados)
-        col4.metric("Não enviados", nao_enviados)
+        colunas_status = {
+            "Não enviado": col1,
+            "Enviado": col2,
+            "Assinado": col3
+        }
 
-        st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+        for status_nome, coluna in colunas_status.items():
+            with coluna:
+                df_status = influ_df[influ_df["status_contrato"] == status_nome]
 
-        filtro_status = st.selectbox("Filtrar por status", ["Todos"] + STATUS_CONTRATO)
+                st.markdown(f"### {status_nome}")
+                st.caption(f"{len(df_status)} contrato(s)")
 
-        contratos_df = influ_df[[
-            "campanha",
-            "cliente",
-            "marca",
-            "responsavel",
-            "arroba",
-            "status_contrato",
-            "prazo_pagamento",
-            "entregaveis"
-        ]].copy()
+                if df_status.empty:
+                    st.info("Nenhum contrato aqui.")
+                else:
+                    for _, item in df_status.iterrows():
+                        st.markdown('<div class="mini-card">', unsafe_allow_html=True)
 
-        if filtro_status != "Todos":
-            contratos_df = contratos_df[contratos_df["status_contrato"] == filtro_status]
+                        st.markdown(f"**{item['arroba']}**")
+                        st.write(f"**Campanha:** {item['campanha']}")
+                        st.write(f"**Cliente:** {item['cliente']}")
+                        st.write(f"**Marca:** {item['marca'] if item['marca'] else '-'}")
+                        st.write(f"**Responsável:** {item['responsavel']}")
+                        st.write(f"**Entregáveis:** {item['entregaveis'] if item['entregaveis'] else '-'}")
+                        st.write(f"**Prazo:** {item['prazo_pagamento'] if item['prazo_pagamento'] else '-'}")
 
-        st.dataframe(contratos_df, use_container_width=True, hide_index=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
 
 
 elif pagina == "Relatórios":
