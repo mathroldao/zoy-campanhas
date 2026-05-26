@@ -868,6 +868,21 @@ def excluir_campanha(campanha_id):
     conn.commit()
     conn.close()
 
+
+
+def atualizar_status_contrato(influenciador_id, novo_status):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE influenciadores
+        SET status_contrato = ?
+        WHERE id = ?
+    """, (novo_status, influenciador_id))
+
+    conn.commit()
+    conn.close()
+
 def validar_login(email, senha):
     email = (email or "").strip().lower()
     senha = (senha or "").strip()
@@ -1796,37 +1811,149 @@ elif pagina == "Contratos":
     if influ_df.empty:
         st.info("Nenhum influenciador cadastrado ainda.")
     else:
+        total_contratos = len(influ_df)
+        assinados = len(influ_df[influ_df["status_contrato"] == "Assinado"])
+        enviados = len(influ_df[influ_df["status_contrato"] == "Enviado"])
+        nao_enviados = len(influ_df[influ_df["status_contrato"] == "Não enviado"])
+
+        resumo1, resumo2, resumo3, resumo4 = st.columns(4)
+        resumo1.metric("Total", total_contratos)
+        resumo2.metric("Não enviados", nao_enviados)
+        resumo3.metric("Enviados", enviados)
+        resumo4.metric("Assinados", assinados)
+
+        st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+
         col1, col2, col3 = st.columns(3)
 
         colunas_status = {
-            "Não enviado": col1,
-            "Enviado": col2,
-            "Assinado": col3
+            "Não enviado": {
+                "coluna": col1,
+                "cor": "#F59E0B",
+                "bg": "rgba(245,158,11,0.08)",
+                "border": "rgba(245,158,11,0.28)"
+            },
+            "Enviado": {
+                "coluna": col2,
+                "cor": "#2563EB",
+                "bg": "rgba(37,99,235,0.07)",
+                "border": "rgba(37,99,235,0.22)"
+            },
+            "Assinado": {
+                "coluna": col3,
+                "cor": "#16A34A",
+                "bg": "rgba(22,163,74,0.07)",
+                "border": "rgba(22,163,74,0.22)"
+            }
         }
 
-        for status_nome, coluna in colunas_status.items():
+        def texto_seguro(item, campo):
+            valor = item[campo] if campo in item.index else ""
+            if pd.isna(valor) or valor == "":
+                return "-"
+            return valor
+
+        for status_nome, config in colunas_status.items():
+            coluna = config["coluna"]
+            cor = config["cor"]
+            bg = config["bg"]
+            border = config["border"]
+
             with coluna:
                 df_status = influ_df[influ_df["status_contrato"] == status_nome]
 
-                st.markdown(f"### {status_nome}")
-                st.caption(f"{len(df_status)} contrato(s)")
+                st.markdown(
+                    f"""
+                    <div style="
+                        background:{bg};
+                        border:1px solid {border};
+                        border-radius:22px;
+                        padding:18px 18px 12px 18px;
+                        margin-bottom:16px;
+                        min-height:80px;
+                    ">
+                        <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                            <div style="font-size:22px; font-weight:950; color:{cor};">{status_nome}</div>
+                            <div style="
+                                background:white;
+                                border:1px solid {border};
+                                color:{cor};
+                                border-radius:999px;
+                                padding:4px 10px;
+                                font-weight:900;
+                                font-size:13px;
+                            ">{len(df_status)}</div>
+                        </div>
+                        <div style="font-size:13px; color:#6B7280; margin-top:4px;">contrato(s)</div>
+                    </div>
+                    """,
+                    unsafe_allow_html=True
+                )
 
                 if df_status.empty:
                     st.info("Nenhum contrato aqui.")
                 else:
                     for _, item in df_status.iterrows():
-                        st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+                        st.markdown(
+                            f"""
+                            <div style="
+                                background:#FFFFFF;
+                                border:1px solid rgba(17,24,39,0.10);
+                                border-left:5px solid {cor};
+                                border-radius:20px;
+                                padding:16px 16px 12px 16px;
+                                margin-bottom:14px;
+                                box-shadow:0 10px 24px rgba(17,24,39,0.05);
+                            ">
+                                <div style="display:flex; justify-content:space-between; align-items:flex-start; gap:10px;">
+                                    <div style="font-size:18px; font-weight:950; color:#111827;">{texto_seguro(item, 'arroba')}</div>
+                                    <span style="
+                                        background:{bg};
+                                        color:{cor};
+                                        border:1px solid {border};
+                                        border-radius:999px;
+                                        padding:4px 9px;
+                                        font-size:12px;
+                                        font-weight:900;
+                                    ">{status_nome}</span>
+                                </div>
+                                <div style="height:10px;"></div>
+                                <div style="font-size:14px; line-height:1.65; color:#111827;">
+                                    <b>Campanha:</b> {texto_seguro(item, 'campanha')}<br>
+                                    <b>Cliente:</b> {texto_seguro(item, 'cliente')}<br>
+                                    <b>Marca:</b> {texto_seguro(item, 'marca')}<br>
+                                    <b>Responsável:</b> {texto_seguro(item, 'responsavel')}<br>
+                                    <b>Entregáveis:</b> {texto_seguro(item, 'entregaveis')}<br>
+                                    <b>Prazo:</b> {texto_seguro(item, 'prazo_pagamento')}
+                                </div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
 
-                        st.markdown(f"**{item['arroba']}**")
-                        st.write(f"**Campanha:** {item['campanha']}")
-                        st.write(f"**Cliente:** {item['cliente']}")
-                        st.write(f"**Marca:** {item['marca'] if item['marca'] else '-'}")
-                        st.write(f"**Responsável:** {item['responsavel']}")
-                        st.write(f"**Entregáveis:** {item['entregaveis'] if item['entregaveis'] else '-'}")
-                        st.write(f"**Prazo:** {item['prazo_pagamento'] if item['prazo_pagamento'] else '-'}")
+                        novo_status = st.selectbox(
+                            "Alterar status do contrato",
+                            STATUS_CONTRATO,
+                            index=STATUS_CONTRATO.index(item["status_contrato"]) if item["status_contrato"] in STATUS_CONTRATO else 0,
+                            key=f"contrato_status_{item['id']}"
+                        )
 
-                        st.markdown('</div>', unsafe_allow_html=True)
+                        col_btn1, col_btn2 = st.columns([1, 1])
 
+                        with col_btn1:
+                            if st.button("Salvar status", key=f"salvar_status_contrato_{item['id']}"):
+                                atualizar_status_contrato(int(item["id"]), novo_status)
+                                st.success("Status atualizado.")
+                                st.rerun()
+
+                        with col_btn2:
+                            if item["status_contrato"] != "Assinado":
+                                if st.button("Marcar assinado", key=f"assinar_contrato_{item['id']}"):
+                                    atualizar_status_contrato(int(item["id"]), "Assinado")
+                                    st.success("Contrato marcado como assinado.")
+                                    st.rerun()
+
+                        st.markdown('<div style="height:18px;"></div>', unsafe_allow_html=True)
 
 elif pagina == "Relatórios":
     campanhas_df = buscar_campanhas()
