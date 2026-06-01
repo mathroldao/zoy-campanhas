@@ -2209,7 +2209,7 @@ elif pagina == "Pós Campanha":
             total_finalizadas = len(finalizadas_df)
             total_pendente = len(finalizadas_df[finalizadas_df["status_pos_campanha"] == "Pendente"])
             total_liberado = len(finalizadas_df[finalizadas_df["status_pos_campanha"] == "Liberado para Financeiro"])
-            total_pago = len(finalizadas_df[finalizadas_df["status_pos_campanha"] == "Pago"])
+            total_pago = len(finalizadas_df[finalizadas_df["status_pos_campanha"] == "NF Emitida"])
 
             r1, r2, r3, r4 = st.columns(4)
             r1.metric("Finalizadas", total_finalizadas)
@@ -2239,8 +2239,8 @@ elif pagina == "Pós Campanha":
                     "border": "rgba(37,99,235,0.22)"
                 },
                 "Pago": {
-                    "titulo": "Pago",
-                    "sub": "Processo financeiro encerrado",
+                    "titulo": "NF Emitida",
+                    "sub": "Aguardando Pagamento",
                     "coluna": col3,
                     "cor": "#16A34A",
                     "bg": "rgba(22,163,74,0.07)",
