@@ -385,6 +385,11 @@ def criar_tabelas():
     except sqlite3.OperationalError:
         pass
 
+    try:
+        cursor.execute("ALTER TABLE campanhas ADD COLUMN status_pos_campanha TEXT DEFAULT 'Pendente'")
+    except sqlite3.OperationalError:
+        pass
+
     cursor.execute("""
     UPDATE campanhas
     SET status = 'Mapeamento', progresso = 10
@@ -528,6 +533,10 @@ def buscar_campanhas():
         df["prazo_pagamento"] = ""
     if "marca" not in df.columns:
         df["marca"] = ""
+    if "status_pos_campanha" not in df.columns:
+        df["status_pos_campanha"] = "Pendente"
+    else:
+        df["status_pos_campanha"] = df["status_pos_campanha"].fillna("Pendente").replace("", "Pendente")
 
     return df
 
@@ -615,6 +624,15 @@ def restaurar_backup(campanhas_file, influenciadores_file):
             row["status_contrato"] if "status_contrato" in row and pd.notna(row["status_contrato"]) else "",
             row["observacoes"] if "observacoes" in row and pd.notna(row["observacoes"]) else ""
         ))
+
+    try:
+        cursor.execute("""
+            UPDATE campanhas
+            SET status_pos_campanha = 'Pendente'
+            WHERE status_pos_campanha IS NULL OR status_pos_campanha = ''
+        """)
+    except sqlite3.OperationalError:
+        pass
 
     cursor.execute("DELETE FROM influenciadores_base")
     cursor.execute("""
@@ -880,6 +898,73 @@ def excluir_campanha(campanha_id):
     conn.close()
 
 
+def atualizar_status_pos_campanha(campanha_id, novo_status):
+    conn = conectar()
+    cursor = conn.cursor()
+
+    cursor.execute("""
+        UPDATE campanhas
+        SET status_pos_campanha = ?
+        WHERE id = ?
+    """, (novo_status, campanha_id))
+
+    conn.commit()
+    conn.close()
+
+
+def enviar_email_financeiro(campanha, cliente, marca, responsavel, valor, prazo_pagamento, qtd_influenciadores, drive):
+    try:
+        config_email = st.secrets.get("email", {})
+        remetente = config_email.get("remetente")
+        senha_app = config_email.get("senha_app")
+        smtp_server = config_email.get("smtp_server", "smtp.gmail.com")
+        smtp_port = int(config_email.get("smtp_port", 587))
+        link_hub = config_email.get("link_hub", "")
+
+        destinatario = "financeiro@agenciazoy.com"
+
+        if not remetente or not senha_app:
+            return False, "E-mail não configurado no Streamlit Secrets."
+
+        assunto = f"Campanha liberada para financeiro — {campanha}"
+
+        corpo = f"""
+Olá, time financeiro.
+
+Uma campanha foi liberada no Zoy Hub para início do processo financeiro.
+
+Campanha: {campanha}
+Cliente/Agência: {cliente}
+Marca: {marca if marca else '-'}
+Valor: {formatar_moeda(valor)}
+Responsável: {responsavel if responsavel else '-'}
+Quantidade de influenciadores: {qtd_influenciadores}
+Prazo de pagamento: {prazo_pagamento if prazo_pagamento else '-'}
+Drive: {drive if drive else '-'}
+
+Acesse o Zoy Hub para conferir os detalhes da campanha.
+{link_hub}
+
+Zoy Hub
+"""
+
+        msg = MIMEMultipart()
+        msg["From"] = remetente
+        msg["To"] = destinatario
+        msg["Subject"] = assunto
+        msg.attach(MIMEText(corpo, "plain", "utf-8"))
+
+        servidor = smtplib.SMTP(smtp_server, smtp_port)
+        servidor.starttls()
+        servidor.login(remetente, senha_app)
+        servidor.sendmail(remetente, destinatario, msg.as_string())
+        servidor.quit()
+
+        return True, f"Financeiro notificado em {destinatario}."
+
+    except Exception as erro:
+        return False, f"Financeiro liberado, mas o e-mail não foi enviado: {erro}"
+
 
 def atualizar_status_contrato(influenciador_id, novo_status):
     conn = conectar()
@@ -1015,7 +1100,7 @@ menu_opcoes = [
     "Detalhe da Campanha",
     "Squads",
     "Contratos",
-    "Relatórios"
+    "Pós Campanha"
 ]
 
 pagina = st.sidebar.radio(
@@ -1102,20 +1187,12 @@ if pagina == "Dashboard":
     else:
         agenda_view = agenda_hoje_df.copy()
 
-        def limpar_texto_agenda(valor):
-            if pd.isna(valor) or valor == "":
-                return "-"
-            return str(valor)
+        for coluna in ["horario", "tipo", "influenciador", "campanha", "status"]:
+            if coluna not in agenda_view.columns:
+                agenda_view[coluna] = ""
 
-        agenda_view["horario"] = agenda_view["horario"].apply(limpar_texto_agenda)
-        agenda_view["tipo"] = agenda_view["tipo"].apply(limpar_texto_agenda)
-        agenda_view["influenciador"] = agenda_view["influenciador"].apply(limpar_texto_agenda)
-        agenda_view["campanha"] = agenda_view["campanha"].apply(limpar_texto_agenda)
-        agenda_view["status"] = agenda_view["status"].apply(limpar_texto_agenda)
-
-        agenda_compacta = agenda_view[[
-            "horario", "tipo", "influenciador", "campanha", "status"
-        ]].rename(columns={
+        agenda_view = agenda_view[["horario", "tipo", "influenciador", "campanha", "status"]].copy()
+        agenda_view = agenda_view.rename(columns={
             "horario": "Hora",
             "tipo": "Tipo",
             "influenciador": "Influenciador",
@@ -1123,15 +1200,17 @@ if pagina == "Dashboard":
             "status": "Status"
         })
 
+        agenda_view = agenda_view.fillna("").replace("", "-")
+
         st.dataframe(
-            agenda_compacta,
+            agenda_view,
             use_container_width=True,
             hide_index=True,
-            height=min(250, 38 + (len(agenda_compacta) + 1) * 35)
+            height=min(280, 42 + (len(agenda_view) * 35))
         )
 
-        if len(agenda_compacta) > 6:
-            st.caption(f"Mostrando {len(agenda_compacta)} itens previstos para hoje.")
+        if len(agenda_view) > 6:
+            st.caption(f"Mostrando {len(agenda_view)} itens previstos para hoje.")
 
     st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
 
@@ -2100,35 +2179,211 @@ elif pagina == "Contratos":
 
                         st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
 
-elif pagina == "Relatórios":
+elif pagina == "Pós Campanha":
     campanhas_df = buscar_campanhas()
+    influ_df = buscar_influenciadores()
 
-    st.title("Relatórios")
-    st.markdown('<div class="sub">Visão simples para acompanhar relatórios pendentes e finalizados</div>', unsafe_allow_html=True)
+    st.title("Pós Campanha")
+    st.markdown(
+        '<div class="sub">Fluxo de liberação financeira apenas para campanhas finalizadas</div>',
+        unsafe_allow_html=True
+    )
 
     if campanhas_df.empty:
         st.info("Nenhuma campanha cadastrada ainda.")
     else:
-        relatorios = []
+        finalizadas_df = campanhas_df[campanhas_df["status"] == "Finalizado"].copy()
 
-        for _, c in campanhas_df.iterrows():
-            if c["status"] == "Finalizado":
-                status_relatorio = "Finalizado"
-            elif c["status"] == "Relatório Pendente":
-                status_relatorio = "Pendente"
-            else:
-                status_relatorio = "Não iniciado"
+        if finalizadas_df.empty:
+            st.info("Nenhuma campanha com status Finalizado ainda.")
+        else:
+            if "status_pos_campanha" not in finalizadas_df.columns:
+                finalizadas_df["status_pos_campanha"] = "Pendente"
 
-            relatorios.append({
-                "campanha": c["campanha"],
-                "cliente/agência": c["cliente"],
-                "marca": c["marca"] if c["marca"] else "-",
-                "responsavel": c["responsavel"],
-                "mês_inicio": c["inicio"],
-                "prazo_pagamento": c["prazo_pagamento"] if c["prazo_pagamento"] else "-",
-                "status_campanha": c["status"],
-                "relatorio": status_relatorio
-            })
+            finalizadas_df["status_pos_campanha"] = (
+                finalizadas_df["status_pos_campanha"]
+                .fillna("Pendente")
+                .replace("", "Pendente")
+            )
 
-        df_rel = pd.DataFrame(relatorios)
-        st.dataframe(df_rel, use_container_width=True, hide_index=True)
+            total_finalizadas = len(finalizadas_df)
+            total_pendente = len(finalizadas_df[finalizadas_df["status_pos_campanha"] == "Pendente"])
+            total_liberado = len(finalizadas_df[finalizadas_df["status_pos_campanha"] == "Liberado para Financeiro"])
+            total_pago = len(finalizadas_df[finalizadas_df["status_pos_campanha"] == "Pago"])
+
+            r1, r2, r3, r4 = st.columns(4)
+            r1.metric("Finalizadas", total_finalizadas)
+            r2.metric("A liberar", total_pendente)
+            r3.metric("Liberadas", total_liberado)
+            r4.metric("Pagas", total_pago)
+
+            st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+
+            col1, col2, col3 = st.columns(3)
+
+            colunas_pos = {
+                "Pendente": {
+                    "titulo": "Finalizadas",
+                    "sub": "Aguardando liberação",
+                    "coluna": col1,
+                    "cor": "#7C3AED",
+                    "bg": "rgba(124,58,237,0.07)",
+                    "border": "rgba(124,58,237,0.22)"
+                },
+                "Liberado para Financeiro": {
+                    "titulo": "Financeiro Liberado",
+                    "sub": "Financeiro pode iniciar o processo",
+                    "coluna": col2,
+                    "cor": "#2563EB",
+                    "bg": "rgba(37,99,235,0.07)",
+                    "border": "rgba(37,99,235,0.22)"
+                },
+                "Pago": {
+                    "titulo": "Pago",
+                    "sub": "Processo financeiro encerrado",
+                    "coluna": col3,
+                    "cor": "#16A34A",
+                    "bg": "rgba(22,163,74,0.07)",
+                    "border": "rgba(22,163,74,0.22)"
+                }
+            }
+
+            def campo_seguro(row, campo, padrao="-"):
+                if campo not in row.index:
+                    return padrao
+                valor = row[campo]
+                if pd.isna(valor) or valor == "":
+                    return padrao
+                return valor
+
+            def contar_influenciadores_campanha(campanha_id):
+                if influ_df.empty or "campanha_id" not in influ_df.columns:
+                    return 0
+                return len(influ_df[influ_df["campanha_id"] == campanha_id])
+
+            for status_pos, config in colunas_pos.items():
+                with config["coluna"]:
+                    df_coluna = finalizadas_df[finalizadas_df["status_pos_campanha"] == status_pos]
+
+                    st.markdown(
+                        f"""
+                        <div style="
+                            background:{config['bg']};
+                            border:1px solid {config['border']};
+                            border-radius:22px;
+                            padding:16px 16px 12px 16px;
+                            margin-bottom:14px;
+                        ">
+                            <div style="display:flex; justify-content:space-between; align-items:center; gap:12px;">
+                                <div style="font-size:21px; font-weight:950; color:{config['cor']};">{config['titulo']}</div>
+                                <div style="
+                                    background:white;
+                                    border:1px solid {config['border']};
+                                    color:{config['cor']};
+                                    border-radius:999px;
+                                    padding:4px 10px;
+                                    font-weight:900;
+                                    font-size:13px;
+                                ">{len(df_coluna)}</div>
+                            </div>
+                            <div style="font-size:13px; color:#6B7280; margin-top:4px;">{config['sub']}</div>
+                        </div>
+                        """,
+                        unsafe_allow_html=True
+                    )
+
+                    if df_coluna.empty:
+                        st.info("Nenhum card aqui.")
+                    else:
+                        for _, c in df_coluna.iterrows():
+                            campanha_id = int(c["id"])
+                            qtd_influenciadores = contar_influenciadores_campanha(campanha_id)
+
+                            st.markdown(
+                                f"""
+                                <div style="
+                                    background:#FFFFFF;
+                                    border:1px solid rgba(17,24,39,0.10);
+                                    border-left:5px solid {config['cor']};
+                                    border-radius:18px;
+                                    padding:14px 14px 12px 14px;
+                                    margin-bottom:8px;
+                                    box-shadow:0 8px 20px rgba(17,24,39,0.045);
+                                ">
+                                    <div style="font-size:18px; font-weight:950; color:#111827;">{campo_seguro(c, 'campanha')}</div>
+                                    <div style="font-size:13px; color:#374151; margin-top:8px; line-height:1.45;">
+                                        <b>{campo_seguro(c, 'cliente')}</b> • {campo_seguro(c, 'marca')}<br>
+                                        {qtd_influenciadores} influenciador(es) • {formatar_moeda(campo_seguro(c, 'valor', 0))}
+                                    </div>
+                                    <div style="font-size:12px; color:#6B7280; margin-top:8px;">
+                                        Resp.: {campo_seguro(c, 'responsavel')}<br>
+                                        Prazo: {campo_seguro(c, 'prazo_pagamento')}
+                                    </div>
+                                </div>
+                                """,
+                                unsafe_allow_html=True
+                            )
+
+                            with st.expander("Ver detalhes", expanded=False):
+                                st.markdown(
+                                    f"""
+                                    <div style="font-size:14px; line-height:1.7; color:#111827;">
+                                        <b>Campanha:</b> {campo_seguro(c, 'campanha')}<br>
+                                        <b>Cliente/Agência:</b> {campo_seguro(c, 'cliente')}<br>
+                                        <b>Marca:</b> {campo_seguro(c, 'marca')}<br>
+                                        <b>Responsável:</b> {campo_seguro(c, 'responsavel')}<br>
+                                        <b>Valor:</b> {formatar_moeda(campo_seguro(c, 'valor', 0))}<br>
+                                        <b>Influenciadores:</b> {qtd_influenciadores}<br>
+                                        <b>Prazo de pagamento:</b> {campo_seguro(c, 'prazo_pagamento')}
+                                    </div>
+                                    """,
+                                    unsafe_allow_html=True
+                                )
+
+                                if campo_seguro(c, "drive", "") != "":
+                                    st.link_button("Abrir Drive", campo_seguro(c, "drive"))
+
+                                if status_pos == "Pendente":
+                                    if st.button("Liberar para Financeiro", key=f"liberar_financeiro_{campanha_id}"):
+                                        atualizar_status_pos_campanha(campanha_id, "Liberado para Financeiro")
+
+                                        email_ok, msg_email = enviar_email_financeiro(
+                                            campo_seguro(c, "campanha"),
+                                            campo_seguro(c, "cliente"),
+                                            campo_seguro(c, "marca"),
+                                            campo_seguro(c, "responsavel"),
+                                            campo_seguro(c, "valor", 0),
+                                            campo_seguro(c, "prazo_pagamento"),
+                                            qtd_influenciadores,
+                                            campo_seguro(c, "drive", "")
+                                        )
+
+                                        if email_ok:
+                                            st.success(msg_email)
+                                        else:
+                                            st.warning(msg_email)
+
+                                        st.rerun()
+
+                                elif status_pos == "Liberado para Financeiro":
+                                    col_pago, col_voltar = st.columns(2)
+
+                                    with col_pago:
+                                        if st.button("Marcar como Pago", key=f"marcar_pago_{campanha_id}"):
+                                            atualizar_status_pos_campanha(campanha_id, "Pago")
+                                            st.success("Campanha marcada como paga.")
+                                            st.rerun()
+
+                                    with col_voltar:
+                                        if st.button("Voltar para Finalizadas", key=f"voltar_pendente_{campanha_id}"):
+                                            atualizar_status_pos_campanha(campanha_id, "Pendente")
+                                            st.success("Campanha voltou para Finalizadas.")
+                                            st.rerun()
+
+                                elif status_pos == "Pago":
+                                    if st.button("Reabrir no Financeiro", key=f"reabrir_financeiro_{campanha_id}"):
+                                        atualizar_status_pos_campanha(campanha_id, "Liberado para Financeiro")
+                                        st.success("Campanha reaberta no financeiro.")
+                                        st.rerun()
+
+                            st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
