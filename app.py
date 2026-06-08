@@ -942,15 +942,24 @@ def validar_login(email, senha):
     try:
         response = (
             supabase.table("usuarios")
-            .select("email")
+            .select("email, senha, ativo")
             .eq("email", email)
-            .eq("senha", senha)
-            .eq("ativo", 1)
             .limit(1)
             .execute()
         )
-        return bool(response.data)
-    except Exception:
+
+        if not response.data:
+            return False
+
+        usuario = response.data[0]
+        senha_banco = str(usuario.get("senha", "")).strip()
+        ativo_banco = str(usuario.get("ativo", "")).strip().lower()
+
+        ativo_ok = ativo_banco in ["1", "true", "ativo"]
+        return senha_banco == senha and ativo_ok
+
+    except Exception as erro:
+        st.error(f"Erro ao validar login: {erro}")
         return False
 
 criar_tabelas()
