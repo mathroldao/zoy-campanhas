@@ -1,4 +1,3 @@
-import sqlite3
 import pandas as pd
 import streamlit as st
 import plotly.express as px
@@ -6,7 +5,12 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
-DB_NAME = "zoy_campanhas.db"
+from supabase import create_client
+
+SUPABASE_URL = st.secrets["supabase"]["url"]
+SUPABASE_KEY = st.secrets["supabase"]["key"]
+supabase = create_client(SUPABASE_URL, SUPABASE_KEY)
+
 
 st.set_page_config(
     page_title="Zoy Hub",
@@ -266,99 +270,10 @@ div[role="radiogroup"] label:has(input:checked) {
 """, unsafe_allow_html=True)
 
 
-def conectar():
-    return sqlite3.connect(DB_NAME, check_same_thread=False)
-
 
 def criar_tabelas():
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS campanhas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        cliente TEXT,
-        campanha TEXT,
-        responsavel TEXT,
-        valor REAL,
-        inicio TEXT,
-        fim TEXT,
-        status TEXT,
-        progresso INTEGER,
-        drive TEXT,
-        briefing TEXT,
-        observacoes TEXT
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS influenciadores (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        campanha_id INTEGER,
-        nome TEXT,
-        arroba TEXT,
-        valor REAL,
-        entregaveis TEXT,
-        postagem TEXT,
-        status_conteudo TEXT,
-        status_contrato TEXT,
-        observacoes TEXT,
-        FOREIGN KEY(campanha_id) REFERENCES campanhas(id)
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS influenciadores_base (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        arroba TEXT UNIQUE
-    )
-    """)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS observacoes_campanha (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        campanha_id INTEGER,
-        usuario TEXT,
-        observacao TEXT,
-        data TEXT,
-        FOREIGN KEY(campanha_id) REFERENCES campanhas(id)
-    )
-    
-    """)
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS observacoes_contrato (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        influenciador_id INTEGER,
-        usuario TEXT,
-        observacao TEXT,
-        data TEXT,
-        FOREIGN KEY(influenciador_id) REFERENCES influenciadores(id)
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS usuarios (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        email TEXT UNIQUE,
-        senha TEXT,
-        ativo INTEGER DEFAULT 1
-    )
-    """)
-
-    cursor.execute("""
-    CREATE TABLE IF NOT EXISTS agenda_entregas (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        campanha_id INTEGER,
-        tipo TEXT,
-        data TEXT,
-        horario TEXT,
-        responsavel TEXT,
-        influenciador TEXT,
-        descricao TEXT,
-        status TEXT DEFAULT 'Pendente',
-        FOREIGN KEY(campanha_id) REFERENCES campanhas(id)
-    )
-    """)
-
+    # As tabelas agora ficam no Supabase.
+    # Esta função mantém o fluxo do app e garante os usuários padrão.
     usuarios_padrao = [
         ("jean@agenciazoy.com", "zoy2026"),
         ("rafaela@agenciazoy.com", "zoy2026"),
@@ -370,40 +285,37 @@ def criar_tabelas():
     ]
 
     for email, senha in usuarios_padrao:
-        cursor.execute("""
-        INSERT OR IGNORE INTO usuarios (email, senha, ativo)
-        VALUES (?, ?, 1)
-        """, (email, senha))
-        
+        try:
+            supabase.table("usuarios").upsert(
+                {"email": email, "senha": senha, "ativo": 1},
+                on_conflict="email"
+            ).execute()
+        except Exception:
+            pass
+
+
+def df_from_supabase(response, columns=None):
+    data = response.data if hasattr(response, "data") and response.data else []
+    df = pd.DataFrame(data)
+
+    if columns is not None:
+        for col in columns:
+            if col not in df.columns:
+                df[col] = ""
+        df = df[columns]
+
+    return df
+
+
+def valor_seguro(valor, padrao=0):
+    if valor is None:
+        return padrao
     try:
-        cursor.execute("ALTER TABLE campanhas ADD COLUMN prazo_pagamento TEXT")
-    except sqlite3.OperationalError:
+        if pd.isna(valor):
+            return padrao
+    except Exception:
         pass
-
-    try:
-        cursor.execute("ALTER TABLE campanhas ADD COLUMN marca TEXT")
-    except sqlite3.OperationalError:
-        pass
-
-    try:
-        cursor.execute("ALTER TABLE campanhas ADD COLUMN status_pos_campanha TEXT DEFAULT 'Pendente'")
-    except sqlite3.OperationalError:
-        pass
-
-    cursor.execute("""
-    UPDATE campanhas
-    SET status = 'Mapeamento', progresso = 10
-    WHERE status = 'Briefing recebido'
-    """)
-
-    cursor.execute("""
-    INSERT OR IGNORE INTO influenciadores_base (arroba)
-    SELECT DISTINCT arroba FROM influenciadores
-    WHERE arroba IS NOT NULL AND arroba != ''
-    """)
-
-    conn.commit()
-    conn.close()
+    return valor
 
 
 STATUS_CAMPANHA = [
@@ -453,6 +365,7 @@ EMAIL_RESPONSAVEIS = {
 RESPONSAVEIS_FIXOS = ["Jean", "Rafaela", "Taila", "Camila", "Financeiro", "Matheus"]
 
 
+
 def calcular_progresso(status):
     mapa = {
         "Mapeamento": 10,
@@ -475,6 +388,11 @@ def calcular_progresso(status):
 
 
 def formatar_moeda(valor):
+    valor = valor_seguro(valor, 0)
+    try:
+        valor = float(valor)
+    except Exception:
+        valor = 0
     return f"R$ {valor:,.2f}".replace(",", "X").replace(".", ",").replace("X", ".")
 
 
@@ -485,223 +403,261 @@ def normalizar_arroba(arroba):
     return arroba
 
 
+def valor_seguro(valor, padrao=0):
+    if valor is None:
+        return padrao
+    try:
+        if pd.isna(valor):
+            return padrao
+    except Exception:
+        pass
+    return valor
+
+
+def texto_vazio(valor):
+    if valor is None:
+        return ""
+    try:
+        if pd.isna(valor):
+            return ""
+    except Exception:
+        pass
+    return str(valor)
+
+
+def df_padrao(columns):
+    return pd.DataFrame(columns=columns)
+
+
+def criar_tabelas():
+    usuarios_padrao = [
+        ("jean@agenciazoy.com", "zoy2026"),
+        ("rafaela@agenciazoy.com", "zoy2026"),
+        ("taila@agenciazoy.com", "zoy2026"),
+        ("camila@agenciazoy.com", "zoy2026"),
+        ("contato@agenciazoy.com", "zoy2026"),
+        ("matheus@agenciazoy.com", "zoy2026"),
+        ("financeiro@agenciazoy.com", "zoy2026"),
+    ]
+
+    for email, senha in usuarios_padrao:
+        try:
+            supabase.table("usuarios").upsert(
+                {"email": email, "senha": senha, "ativo": 1},
+                on_conflict="email"
+            ).execute()
+        except Exception:
+            pass
+
+
 def salvar_influenciador_base(arroba):
     arroba = normalizar_arroba(arroba)
     if not arroba:
         return
 
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("INSERT OR IGNORE INTO influenciadores_base (arroba) VALUES (?)", (arroba,))
-    conn.commit()
-    conn.close()
+    try:
+        supabase.table("influenciadores_base").upsert(
+            {"arroba": arroba},
+            on_conflict="arroba"
+        ).execute()
+    except Exception:
+        pass
 
 
 def buscar_influenciadores_base():
-    conn = conectar()
-    df = pd.read_sql_query("SELECT arroba FROM influenciadores_base ORDER BY arroba ASC", conn)
-    conn.close()
-    return df["arroba"].tolist() if not df.empty else []
+    try:
+        response = supabase.table("influenciadores_base").select("arroba").order("arroba", desc=False).execute()
+        df = pd.DataFrame(response.data or [])
+        return df["arroba"].tolist() if not df.empty and "arroba" in df.columns else []
+    except Exception:
+        return []
 
 
 def salvar_campanha(cliente, marca, campanha, responsavel, valor, inicio, prazo_pagamento, status, drive, briefing, observacoes):
-    conn = conectar()
-    cursor = conn.cursor()
+    payload = {
+        "cliente": texto_vazio(cliente),
+        "marca": texto_vazio(marca),
+        "campanha": texto_vazio(campanha),
+        "responsavel": texto_vazio(responsavel),
+        "valor": float(valor_seguro(valor, 0)),
+        "inicio": texto_vazio(inicio),
+        "fim": "",
+        "prazo_pagamento": texto_vazio(prazo_pagamento),
+        "status": texto_vazio(status),
+        "progresso": calcular_progresso(status),
+        "drive": texto_vazio(drive),
+        "briefing": texto_vazio(briefing),
+        "observacoes": texto_vazio(observacoes),
+        "status_pos_campanha": "Pendente",
+    }
 
-    cursor.execute("""
-    INSERT INTO campanhas (
-        cliente, marca, campanha, responsavel, valor, inicio, fim, prazo_pagamento,
-        status, progresso, drive, briefing, observacoes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        cliente, marca, campanha, responsavel, valor, inicio, "", prazo_pagamento,
-        status, calcular_progresso(status), drive, briefing, observacoes
-    ))
-
-    campanha_id = cursor.lastrowid
-    conn.commit()
-    conn.close()
-    return campanha_id
+    response = supabase.table("campanhas").insert(payload).execute()
+    data = response.data or []
+    return int(data[0]["id"]) if data else None
 
 
 def buscar_campanhas():
-    conn = conectar()
-    df = pd.read_sql_query("SELECT * FROM campanhas ORDER BY id DESC", conn)
-    conn.close()
+    columns = [
+        "id", "cliente", "marca", "campanha", "responsavel", "valor", "inicio", "fim",
+        "prazo_pagamento", "status", "progresso", "drive", "briefing", "observacoes",
+        "status_pos_campanha", "created_at"
+    ]
 
-    if "prazo_pagamento" not in df.columns:
-        df["prazo_pagamento"] = ""
-    if "marca" not in df.columns:
-        df["marca"] = ""
-    if "status_pos_campanha" not in df.columns:
-        df["status_pos_campanha"] = "Pendente"
-    else:
-        df["status_pos_campanha"] = df["status_pos_campanha"].fillna("Pendente").replace("", "Pendente")
+    try:
+        response = supabase.table("campanhas").select("*").order("id", desc=True).execute()
+        df = pd.DataFrame(response.data or [])
+    except Exception:
+        df = pd.DataFrame()
 
-    return df
+    for col in columns:
+        if col not in df.columns:
+            df[col] = "" if col not in ["valor", "progresso"] else 0
+
+    df["status_pos_campanha"] = df["status_pos_campanha"].fillna("Pendente").replace("", "Pendente")
+    df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
+    df["progresso"] = pd.to_numeric(df["progresso"], errors="coerce").fillna(0).astype(int)
+
+    return df[columns]
 
 
 def buscar_influenciadores():
-    conn = conectar()
-    df = pd.read_sql_query("""
-        SELECT 
-            influenciadores.id,
-            influenciadores.campanha_id,
-            campanhas.campanha,
-            campanhas.cliente,
-            campanhas.marca,
-            campanhas.responsavel,
-            campanhas.prazo_pagamento,
-            influenciadores.nome,
-            influenciadores.arroba,
-            influenciadores.valor,
-            influenciadores.entregaveis,
-            influenciadores.postagem,
-            influenciadores.status_conteudo,
-            influenciadores.status_contrato,
-            influenciadores.observacoes
-        FROM influenciadores
-        LEFT JOIN campanhas ON influenciadores.campanha_id = campanhas.id
-        ORDER BY influenciadores.id DESC
-    """, conn)
-    conn.close()
+    columns = [
+        "id", "campanha_id", "campanha", "cliente", "marca", "responsavel", "prazo_pagamento",
+        "nome", "arroba", "valor", "entregaveis", "postagem", "status_conteudo",
+        "status_contrato", "observacoes"
+    ]
 
-    if "marca" not in df.columns:
-        df["marca"] = ""
+    try:
+        influ_resp = supabase.table("influenciadores").select("*").order("id", desc=True).execute()
+        influ_df = pd.DataFrame(influ_resp.data or [])
+    except Exception:
+        influ_df = pd.DataFrame()
 
-    return df
+    if influ_df.empty:
+        return df_padrao(columns)
+
+    try:
+        camp_df = buscar_campanhas()[["id", "campanha", "cliente", "marca", "responsavel", "prazo_pagamento"]].copy()
+        camp_df = camp_df.rename(columns={"id": "campanha_id"})
+        df = influ_df.merge(camp_df, on="campanha_id", how="left")
+    except Exception:
+        df = influ_df.copy()
+
+    for col in columns:
+        if col not in df.columns:
+            df[col] = "" if col != "valor" else 0
+
+    df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
+    return df[columns]
 
 
 def restaurar_backup(campanhas_file, influenciadores_file):
-    conn = conectar()
-    cursor = conn.cursor()
-
     campanhas_df = pd.read_csv(campanhas_file)
     influ_df = pd.read_csv(influenciadores_file)
 
-    cursor.execute("DELETE FROM influenciadores")
-    cursor.execute("DELETE FROM campanhas")
-
-    for _, row in campanhas_df.iterrows():
-        cursor.execute("""
-            INSERT INTO campanhas (
-                id, cliente, campanha, responsavel, valor, inicio, fim,
-                status, progresso, drive, briefing, observacoes,
-                prazo_pagamento, marca
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            int(row["id"]),
-            row["cliente"] if "cliente" in row and pd.notna(row["cliente"]) else "",
-            row["campanha"] if "campanha" in row and pd.notna(row["campanha"]) else "",
-            row["responsavel"] if "responsavel" in row and pd.notna(row["responsavel"]) else "",
-            float(row["valor"]) if "valor" in row and pd.notna(row["valor"]) else 0,
-            row["inicio"] if "inicio" in row and pd.notna(row["inicio"]) else "",
-            row["fim"] if "fim" in row and pd.notna(row["fim"]) else "",
-            row["status"] if "status" in row and pd.notna(row["status"]) else "",
-            int(row["progresso"]) if "progresso" in row and pd.notna(row["progresso"]) else 0,
-            row["drive"] if "drive" in row and pd.notna(row["drive"]) else "",
-            row["briefing"] if "briefing" in row and pd.notna(row["briefing"]) else "",
-            row["observacoes"] if "observacoes" in row and pd.notna(row["observacoes"]) else "",
-            row["prazo_pagamento"] if "prazo_pagamento" in row and pd.notna(row["prazo_pagamento"]) else "",
-            row["marca"] if "marca" in row and pd.notna(row["marca"]) else ""
-        ))
-
-    for _, row in influ_df.iterrows():
-        cursor.execute("""
-            INSERT INTO influenciadores (
-                id, campanha_id, nome, arroba, valor, entregaveis,
-                postagem, status_conteudo, status_contrato, observacoes
-            ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-        """, (
-            int(row["id"]),
-            int(row["campanha_id"]),
-            row["nome"] if "nome" in row and pd.notna(row["nome"]) else "",
-            row["arroba"] if "arroba" in row and pd.notna(row["arroba"]) else "",
-            float(row["valor"]) if "valor" in row and pd.notna(row["valor"]) else 0,
-            row["entregaveis"] if "entregaveis" in row and pd.notna(row["entregaveis"]) else "",
-            row["postagem"] if "postagem" in row and pd.notna(row["postagem"]) else "",
-            row["status_conteudo"] if "status_conteudo" in row and pd.notna(row["status_conteudo"]) else "",
-            row["status_contrato"] if "status_contrato" in row and pd.notna(row["status_contrato"]) else "",
-            row["observacoes"] if "observacoes" in row and pd.notna(row["observacoes"]) else ""
-        ))
-
     try:
-        cursor.execute("""
-            UPDATE campanhas
-            SET status_pos_campanha = 'Pendente'
-            WHERE status_pos_campanha IS NULL OR status_pos_campanha = ''
-        """)
-    except sqlite3.OperationalError:
+        supabase.table("influenciadores").delete().neq("id", -1).execute()
+        supabase.table("campanhas").delete().neq("id", -1).execute()
+    except Exception:
         pass
 
-    cursor.execute("DELETE FROM influenciadores_base")
-    cursor.execute("""
-    INSERT OR IGNORE INTO influenciadores_base (arroba)
-    SELECT DISTINCT arroba FROM influenciadores
-    WHERE arroba IS NOT NULL AND arroba != ''
-    """)
+    campanhas_payload = []
+    for _, row in campanhas_df.iterrows():
+        campanhas_payload.append({
+            "id": int(row["id"]) if "id" in row and pd.notna(row["id"]) else None,
+            "cliente": texto_vazio(row["cliente"]) if "cliente" in row else "",
+            "campanha": texto_vazio(row["campanha"]) if "campanha" in row else "",
+            "responsavel": texto_vazio(row["responsavel"]) if "responsavel" in row else "",
+            "valor": float(valor_seguro(row["valor"] if "valor" in row else 0, 0)),
+            "inicio": texto_vazio(row["inicio"]) if "inicio" in row else "",
+            "fim": texto_vazio(row["fim"]) if "fim" in row else "",
+            "status": texto_vazio(row["status"]) if "status" in row else "",
+            "progresso": int(valor_seguro(row["progresso"] if "progresso" in row else 0, 0)),
+            "drive": texto_vazio(row["drive"]) if "drive" in row else "",
+            "briefing": texto_vazio(row["briefing"]) if "briefing" in row else "",
+            "observacoes": texto_vazio(row["observacoes"]) if "observacoes" in row else "",
+            "prazo_pagamento": texto_vazio(row["prazo_pagamento"]) if "prazo_pagamento" in row else "",
+            "marca": texto_vazio(row["marca"]) if "marca" in row else "",
+            "status_pos_campanha": texto_vazio(row["status_pos_campanha"]) if "status_pos_campanha" in row else "Pendente",
+        })
 
-    conn.commit()
-    conn.close()
+    if campanhas_payload:
+        supabase.table("campanhas").insert(campanhas_payload).execute()
+
+    influ_payload = []
+    for _, row in influ_df.iterrows():
+        influ_payload.append({
+            "id": int(row["id"]) if "id" in row and pd.notna(row["id"]) else None,
+            "campanha_id": int(row["campanha_id"]) if "campanha_id" in row and pd.notna(row["campanha_id"]) else None,
+            "nome": texto_vazio(row["nome"]) if "nome" in row else "",
+            "arroba": normalizar_arroba(row["arroba"]) if "arroba" in row else "",
+            "valor": float(valor_seguro(row["valor"] if "valor" in row else 0, 0)),
+            "entregaveis": texto_vazio(row["entregaveis"]) if "entregaveis" in row else "",
+            "postagem": texto_vazio(row["postagem"]) if "postagem" in row else "",
+            "status_conteudo": texto_vazio(row["status_conteudo"]) if "status_conteudo" in row else "",
+            "status_contrato": texto_vazio(row["status_contrato"]) if "status_contrato" in row else "",
+            "observacoes": texto_vazio(row["observacoes"]) if "observacoes" in row else "",
+        })
+
+    if influ_payload:
+        supabase.table("influenciadores").insert(influ_payload).execute()
+
+    for arroba in influ_df["arroba"].dropna().unique().tolist() if "arroba" in influ_df.columns else []:
+        salvar_influenciador_base(arroba)
+
 
 def salvar_observacao(campanha_id, usuario, observacao):
-    conn = sqlite3.connect(DB_NAME)
-    cursor = conn.cursor()
-
     from datetime import datetime
     data = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-    cursor.execute("""
-        INSERT INTO observacoes_campanha (campanha_id, usuario, observacao, data)
-        VALUES (?, ?, ?, ?)
-    """, (campanha_id, usuario, observacao, data))
-
-    conn.commit()
-    conn.close()
+    supabase.table("observacoes_campanha").insert({
+        "campanha_id": int(campanha_id),
+        "usuario": texto_vazio(usuario),
+        "observacao": texto_vazio(observacao),
+        "data": data
+    }).execute()
 
 
 def buscar_observacoes(campanha_id):
-    conn = sqlite3.connect(DB_NAME)
-
-    df = pd.read_sql_query("""
-        SELECT usuario, observacao, data
-        FROM observacoes_campanha
-        WHERE campanha_id = ?
-        ORDER BY id DESC
-    """, conn, params=(campanha_id,))
-
-    conn.close()
-    return df
+    try:
+        response = (
+            supabase.table("observacoes_campanha")
+            .select("usuario, observacao, data")
+            .eq("campanha_id", int(campanha_id))
+            .order("id", desc=True)
+            .execute()
+        )
+        return pd.DataFrame(response.data or [])
+    except Exception:
+        return df_padrao(["usuario", "observacao", "data"])
 
 
 def salvar_item_agenda(campanha_id, tipo, data, horario, responsavel, influenciador, descricao, status):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        INSERT INTO agenda_entregas (
-            campanha_id, tipo, data, horario, responsavel, influenciador, descricao, status
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        campanha_id, tipo, data, horario, responsavel, influenciador, descricao, status
-    ))
-
-    conn.commit()
-    conn.close()
+    supabase.table("agenda_entregas").insert({
+        "campanha_id": int(campanha_id),
+        "tipo": texto_vazio(tipo),
+        "data": texto_vazio(data),
+        "horario": texto_vazio(horario),
+        "responsavel": texto_vazio(responsavel),
+        "influenciador": texto_vazio(influenciador),
+        "descricao": texto_vazio(descricao),
+        "status": texto_vazio(status) or "Pendente",
+    }).execute()
 
 
 def buscar_agenda_campanha(campanha_id):
-    conn = conectar()
-
-    df = pd.read_sql_query("""
-        SELECT *
-        FROM agenda_entregas
-        WHERE campanha_id = ?
-        ORDER BY data ASC, horario ASC
-    """, conn, params=(campanha_id,))
-
-    conn.close()
-    return df
+    try:
+        response = (
+            supabase.table("agenda_entregas")
+            .select("*")
+            .eq("campanha_id", int(campanha_id))
+            .order("data", desc=False)
+            .order("horario", desc=False)
+            .execute()
+        )
+        return pd.DataFrame(response.data or [])
+    except Exception:
+        return df_padrao(["id", "campanha_id", "tipo", "data", "horario", "responsavel", "influenciador", "descricao", "status"])
 
 
 def buscar_agenda_hoje():
@@ -709,43 +665,34 @@ def buscar_agenda_hoje():
 
     hoje = date.today().strftime("%Y-%m-%d")
 
-    conn = conectar()
+    try:
+        agenda_resp = (
+            supabase.table("agenda_entregas")
+            .select("*")
+            .eq("data", hoje)
+            .order("horario", desc=False)
+            .execute()
+        )
+        agenda_df = pd.DataFrame(agenda_resp.data or [])
+    except Exception:
+        agenda_df = pd.DataFrame()
 
-    df = pd.read_sql_query("""
-        SELECT 
-            agenda_entregas.id,
-            agenda_entregas.tipo,
-            agenda_entregas.data,
-            agenda_entregas.horario,
-            agenda_entregas.responsavel,
-            agenda_entregas.influenciador,
-            agenda_entregas.descricao,
-            agenda_entregas.status,
-            campanhas.campanha,
-            campanhas.cliente,
-            campanhas.marca
-        FROM agenda_entregas
-        LEFT JOIN campanhas ON agenda_entregas.campanha_id = campanhas.id
-        WHERE agenda_entregas.data = ?
-        ORDER BY agenda_entregas.horario ASC
-    """, conn, params=(hoje,))
+    if agenda_df.empty:
+        return df_padrao(["id", "tipo", "data", "horario", "responsavel", "influenciador", "descricao", "status", "campanha", "cliente", "marca"])
 
-    conn.close()
-    return df
+    try:
+        camp_df = buscar_campanhas()[["id", "campanha", "cliente", "marca"]].copy()
+        camp_df = camp_df.rename(columns={"id": "campanha_id"})
+        agenda_df = agenda_df.merge(camp_df, on="campanha_id", how="left")
+    except Exception:
+        for col in ["campanha", "cliente", "marca"]:
+            agenda_df[col] = ""
+
+    return agenda_df
 
 
 def concluir_item_agenda(item_id):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        UPDATE agenda_entregas
-        SET status = 'Concluído'
-        WHERE id = ?
-    """, (item_id,))
-
-    conn.commit()
-    conn.close()
+    supabase.table("agenda_entregas").update({"status": "Concluído"}).eq("id", int(item_id)).execute()
 
 
 def resolver_email_responsavel(responsavel):
@@ -814,13 +761,23 @@ Zoy Hub
 
 
 def buscar_influenciadores_por_campanha(campanha_id):
-    conn = conectar()
-    df = pd.read_sql_query("""
-        SELECT * FROM influenciadores
-        WHERE campanha_id = ?
-        ORDER BY id DESC
-    """, conn, params=(campanha_id,))
-    conn.close()
+    try:
+        response = (
+            supabase.table("influenciadores")
+            .select("*")
+            .eq("campanha_id", int(campanha_id))
+            .order("id", desc=True)
+            .execute()
+        )
+        df = pd.DataFrame(response.data or [])
+    except Exception:
+        df = pd.DataFrame()
+
+    for col in ["id", "campanha_id", "nome", "arroba", "valor", "entregaveis", "postagem", "status_conteudo", "status_contrato", "observacoes"]:
+        if col not in df.columns:
+            df[col] = "" if col != "valor" else 0
+
+    df["valor"] = pd.to_numeric(df["valor"], errors="coerce").fillna(0)
     return df
 
 
@@ -828,88 +785,54 @@ def salvar_influenciador(campanha_id, arroba, valor, entregaveis, status_conteud
     arroba = normalizar_arroba(arroba)
     salvar_influenciador_base(arroba)
 
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    INSERT INTO influenciadores (
-        campanha_id, nome, arroba, valor, entregaveis, postagem,
-        status_conteudo, status_contrato, observacoes
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-    """, (
-        campanha_id, "", arroba, valor, entregaveis, "",
-        status_conteudo, status_contrato, observacoes
-    ))
-
-    conn.commit()
-    conn.close()
+    supabase.table("influenciadores").insert({
+        "campanha_id": int(campanha_id),
+        "nome": "",
+        "arroba": arroba,
+        "valor": float(valor_seguro(valor, 0)),
+        "entregaveis": texto_vazio(entregaveis),
+        "postagem": "",
+        "status_conteudo": texto_vazio(status_conteudo),
+        "status_contrato": texto_vazio(status_contrato),
+        "observacoes": texto_vazio(observacoes),
+    }).execute()
 
 
 def atualizar_status_campanha(campanha_id, novo_status):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    UPDATE campanhas 
-    SET status = ?, progresso = ?
-    WHERE id = ?
-    """, (novo_status, calcular_progresso(novo_status), campanha_id))
-
-    conn.commit()
-    conn.close()
+    supabase.table("campanhas").update({
+        "status": texto_vazio(novo_status),
+        "progresso": calcular_progresso(novo_status)
+    }).eq("id", int(campanha_id)).execute()
 
 
 def atualizar_campanha(campanha_id, cliente, marca, campanha, responsavel, valor, inicio, prazo_pagamento, status, drive, briefing, observacoes):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-    UPDATE campanhas
-    SET cliente = ?,
-        marca = ?,
-        campanha = ?,
-        responsavel = ?,
-        valor = ?,
-        inicio = ?,
-        prazo_pagamento = ?,
-        status = ?,
-        progresso = ?,
-        drive = ?,
-        briefing = ?,
-        observacoes = ?
-    WHERE id = ?
-    """, (
-        cliente, marca, campanha, responsavel, valor, inicio, prazo_pagamento,
-        status, calcular_progresso(status), drive, briefing, observacoes, campanha_id
-    ))
-
-    conn.commit()
-    conn.close()
+    supabase.table("campanhas").update({
+        "cliente": texto_vazio(cliente),
+        "marca": texto_vazio(marca),
+        "campanha": texto_vazio(campanha),
+        "responsavel": texto_vazio(responsavel),
+        "valor": float(valor_seguro(valor, 0)),
+        "inicio": texto_vazio(inicio),
+        "prazo_pagamento": texto_vazio(prazo_pagamento),
+        "status": texto_vazio(status),
+        "progresso": calcular_progresso(status),
+        "drive": texto_vazio(drive),
+        "briefing": texto_vazio(briefing),
+        "observacoes": texto_vazio(observacoes),
+    }).eq("id", int(campanha_id)).execute()
 
 
 def excluir_campanha(campanha_id):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("DELETE FROM influenciadores WHERE campanha_id = ?", (campanha_id,))
-    cursor.execute("DELETE FROM campanhas WHERE id = ?", (campanha_id,))
-
-    conn.commit()
-    conn.close()
+    supabase.table("influenciadores").delete().eq("campanha_id", int(campanha_id)).execute()
+    supabase.table("agenda_entregas").delete().eq("campanha_id", int(campanha_id)).execute()
+    supabase.table("observacoes_campanha").delete().eq("campanha_id", int(campanha_id)).execute()
+    supabase.table("campanhas").delete().eq("id", int(campanha_id)).execute()
 
 
 def atualizar_status_pos_campanha(campanha_id, novo_status):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        UPDATE campanhas
-        SET status_pos_campanha = ?
-        WHERE id = ?
-    """, (novo_status, campanha_id))
-
-    conn.commit()
-    conn.close()
+    supabase.table("campanhas").update({
+        "status_pos_campanha": texto_vazio(novo_status)
+    }).eq("id", int(campanha_id)).execute()
 
 
 def enviar_email_financeiro(campanha, cliente, marca, responsavel, valor, prazo_pagamento, qtd_influenciadores, drive):
@@ -967,82 +890,69 @@ Zoy Hub
 
 
 def atualizar_status_contrato(influenciador_id, novo_status):
-    conn = conectar()
-    cursor = conn.cursor()
-
-    cursor.execute("""
-        UPDATE influenciadores
-        SET status_contrato = ?
-        WHERE id = ?
-    """, (novo_status, influenciador_id))
-
-    conn.commit()
-    conn.close()
+    supabase.table("influenciadores").update({
+        "status_contrato": texto_vazio(novo_status)
+    }).eq("id", int(influenciador_id)).execute()
 
 
 def salvar_observacao_contrato(influenciador_id, usuario, observacao):
-    conn = conectar()
-    cursor = conn.cursor()
-
     from datetime import datetime
     data = datetime.now().strftime("%d/%m/%Y %H:%M")
 
-    cursor.execute("""
-        INSERT INTO observacoes_contrato (influenciador_id, usuario, observacao, data)
-        VALUES (?, ?, ?, ?)
-    """, (influenciador_id, usuario, observacao, data))
-
-    conn.commit()
-    conn.close()
+    supabase.table("observacoes_contrato").insert({
+        "influenciador_id": int(influenciador_id),
+        "usuario": texto_vazio(usuario),
+        "observacao": texto_vazio(observacao),
+        "data": data
+    }).execute()
 
 
 def buscar_observacoes_contrato(influenciador_id, limite=2):
-    conn = conectar()
-
-    df = pd.read_sql_query("""
-        SELECT usuario, observacao, data
-        FROM observacoes_contrato
-        WHERE influenciador_id = ?
-        ORDER BY id DESC
-        LIMIT ?
-    """, conn, params=(influenciador_id, limite))
-
-    conn.close()
-    return df
+    try:
+        response = (
+            supabase.table("observacoes_contrato")
+            .select("usuario, observacao, data")
+            .eq("influenciador_id", int(influenciador_id))
+            .order("id", desc=True)
+            .limit(int(limite))
+            .execute()
+        )
+        return pd.DataFrame(response.data or [])
+    except Exception:
+        return df_padrao(["usuario", "observacao", "data"])
 
 
 def contar_observacoes_contrato(influenciador_id):
-    conn = conectar()
-    cursor = conn.cursor()
-    cursor.execute("""
-        SELECT COUNT(*)
-        FROM observacoes_contrato
-        WHERE influenciador_id = ?
-    """, (influenciador_id,))
-    total = cursor.fetchone()[0]
-    conn.close()
-    return total
+    try:
+        response = (
+            supabase.table("observacoes_contrato")
+            .select("id", count="exact")
+            .eq("influenciador_id", int(influenciador_id))
+            .execute()
+        )
+        return int(response.count or 0)
+    except Exception:
+        return 0
 
 
 def validar_login(email, senha):
     email = (email or "").strip().lower()
     senha = (senha or "").strip()
 
-    conn = conectar()
-    cursor = conn.cursor()
+    try:
+        response = (
+            supabase.table("usuarios")
+            .select("email")
+            .eq("email", email)
+            .eq("senha", senha)
+            .eq("ativo", 1)
+            .limit(1)
+            .execute()
+        )
+        return bool(response.data)
+    except Exception:
+        return False
 
-    cursor.execute("""
-    SELECT email FROM usuarios
-    WHERE email = ?
-    AND senha = ?
-    AND ativo = 1
-    """, (email, senha))
-
-    usuario = cursor.fetchone()
-    conn.close()
-
-    return usuario is not None
-    
 criar_tabelas()
 
 if "qtd_influ_squad" not in st.session_state:
