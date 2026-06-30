@@ -1407,11 +1407,13 @@ elif pagina == "Campanhas":
     campanhas_df = buscar_campanhas()
 
     st.title("Campanhas")
-    st.markdown('<div class="sub">Acompanhe status, progresso, squad e responsáveis</div>', unsafe_allow_html=True)
+    st.markdown('<div class="sub">Lista operacional das campanhas com detalhes, influenciadores, agenda e observações em um único lugar</div>', unsafe_allow_html=True)
 
     if campanhas_df.empty:
         st.info("Nenhuma campanha cadastrada ainda.")
     else:
+        col_f1, col_f2 = st.columns([1, 2])
+
         responsaveis = sorted(
             campanhas_df["responsavel"]
             .fillna("")
@@ -1420,73 +1422,377 @@ elif pagina == "Campanhas":
             .tolist()
         )
 
-        filtro_responsavel = st.selectbox(
-            "Filtrar campanhas por responsável",
-            ["Todos"] + responsaveis
-        )
+        with col_f1:
+            filtro_responsavel = st.selectbox(
+                "Filtrar por responsável",
+                ["Todos"] + responsaveis,
+                key="campanhas_filtro_responsavel"
+            )
+
+        with col_f2:
+            busca_campanha = st.text_input(
+                "Buscar campanha, cliente ou marca",
+                placeholder="Digite para localizar rapidamente...",
+                key="campanhas_busca_texto"
+            )
+
+        campanhas_filtradas = campanhas_df.copy()
 
         if filtro_responsavel != "Todos":
             if filtro_responsavel == "Sem responsável":
-                campanhas_df = campanhas_df[
-                    campanhas_df["responsavel"].fillna("").str.strip() == ""
+                campanhas_filtradas = campanhas_filtradas[
+                    campanhas_filtradas["responsavel"].fillna("").str.strip() == ""
                 ]
             else:
-                campanhas_df = campanhas_df[
-                    campanhas_df["responsavel"] == filtro_responsavel
+                campanhas_filtradas = campanhas_filtradas[
+                    campanhas_filtradas["responsavel"] == filtro_responsavel
                 ]
 
-        st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+        if busca_campanha.strip():
+            termo = busca_campanha.strip().lower()
+            campanhas_filtradas = campanhas_filtradas[
+                campanhas_filtradas["campanha"].fillna("").str.lower().str.contains(termo, na=False)
+                | campanhas_filtradas["cliente"].fillna("").str.lower().str.contains(termo, na=False)
+                | campanhas_filtradas["marca"].fillna("").str.lower().str.contains(termo, na=False)
+            ]
 
-        if campanhas_df.empty:
-            st.info("Nenhuma campanha encontrada para esse responsável.")
+        if campanhas_filtradas.empty:
+            st.info("Nenhuma campanha encontrada com esse filtro.")
         else:
-            for _, c in campanhas_df.iterrows():
+            campanhas_dict = {
+                f"{row['campanha']} | {row['marca'] if row['marca'] else row['cliente']} | {row['responsavel'] if row['responsavel'] else 'Sem responsável'}": int(row["id"])
+                for _, row in campanhas_filtradas.iterrows()
+            }
+
+            escolha = st.selectbox(
+                "Selecione uma campanha para abrir",
+                list(campanhas_dict.keys()),
+                key="campanhas_select_campanha"
+            )
+
+            campanha_id = campanhas_dict[escolha]
+            campanha = campanhas_df[campanhas_df["id"] == campanha_id].iloc[0]
+            squad_df = buscar_influenciadores_por_campanha(campanha_id)
+
+            st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+
+            st.markdown('<div class="card-purple">', unsafe_allow_html=True)
+            col_h1, col_h2, col_h3 = st.columns([1.6, 1, 1])
+
+            with col_h1:
+                st.header(campanha["campanha"])
+                st.markdown(f'<div class="info-line"><span class="purple">Cliente/Agência:</span> {campanha["cliente"] if campanha["cliente"] else "-"}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="info-line"><span class="purple">Marca:</span> {campanha["marca"] if campanha["marca"] else "-"}</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="info-line"><span class="purple">Responsável:</span> {campanha["responsavel"] if campanha["responsavel"] else "-"}</div>', unsafe_allow_html=True)
+
+            with col_h2:
+                st.markdown('<div class="small-muted">Status operacional</div>', unsafe_allow_html=True)
+                st.markdown(f'<span class="status-pill">{campanha["status"]}</span>', unsafe_allow_html=True)
+                st.write("")
+                st.progress(int(campanha["progresso"]) / 100)
+                st.caption(f"{int(campanha['progresso'])}% concluído")
+
+            with col_h3:
+                st.markdown('<div class="small-muted">Valor total</div>', unsafe_allow_html=True)
+                st.markdown(f'<div class="value-big">{formatar_moeda(campanha["valor"])}</div>', unsafe_allow_html=True)
+                st.caption(f"Mês de início: {campanha['inicio'] if campanha['inicio'] else '-'}")
+                st.caption(f"Prazo: {campanha['prazo_pagamento'] if campanha['prazo_pagamento'] else '-'}")
+
+            st.markdown('</div>', unsafe_allow_html=True)
+
+            aba_geral, aba_influ, aba_agenda, aba_obs, aba_config = st.tabs([
+                "📄 Geral",
+                "👥 Influenciadores",
+                "📅 Agenda",
+                "💬 Observações",
+                "⚙️ Configurações"
+            ])
+
+            with aba_geral:
+                col_g1, col_g2 = st.columns([1.2, 1])
+
+                with col_g1:
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
+                    st.subheader("Informações da campanha")
+                    st.write(f"**Cliente/Agência:** {campanha['cliente'] if campanha['cliente'] else '-'}")
+                    st.write(f"**Marca:** {campanha['marca'] if campanha['marca'] else '-'}")
+                    st.write(f"**Responsável:** {campanha['responsavel'] if campanha['responsavel'] else '-'}")
+                    st.write(f"**Mês de início:** {campanha['inicio'] if campanha['inicio'] else '-'}")
+                    st.write(f"**Prazo de pagamento:** {campanha['prazo_pagamento'] if campanha['prazo_pagamento'] else '-'}")
+                    st.write(f"**Status:** {campanha['status'] if campanha['status'] else '-'}")
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with col_g2:
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
+                    st.subheader("Drive e briefing")
+                    if campanha["drive"]:
+                        st.link_button("Abrir pasta no Drive", campanha["drive"])
+                    else:
+                        st.caption("Nenhum link do Drive cadastrado.")
+
+                    with st.expander("Resumo do briefing", expanded=True):
+                        st.write(campanha["briefing"] if campanha["briefing"] else "-")
+
+                    with st.expander("Observações internas", expanded=False):
+                        st.write(campanha["observacoes"] if campanha["observacoes"] else "-")
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+            with aba_influ:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                st.subheader("Influenciadores da campanha")
+
+                if squad_df.empty:
+                    st.info("Nenhum influenciador cadastrado nesta campanha ainda.")
+                else:
+                    df_squad = squad_df[["arroba", "valor", "entregaveis", "status_conteudo", "status_contrato", "observacoes"]].copy()
+                    df_squad["valor"] = df_squad["valor"].apply(formatar_moeda)
+                    df_squad = df_squad.rename(columns={
+                        "arroba": "@",
+                        "valor": "Cachê",
+                        "entregaveis": "Entregáveis",
+                        "status_conteudo": "Status conteúdo",
+                        "status_contrato": "Status contrato",
+                        "observacoes": "Observações"
+                    })
+                    st.dataframe(df_squad, use_container_width=True, hide_index=True)
+
+                with st.expander("Adicionar influenciador nesta campanha"):
+                    base_influs = buscar_influenciadores_base()
+                    opcoes = ["Cadastrar novo"] + base_influs
+
+                    escolha_influ = st.selectbox("Influenciador", opcoes, key=f"campanhas_select_influ_{campanha_id}")
+
+                    if escolha_influ == "Cadastrar novo":
+                        arroba = st.text_input("@ do influenciador", key=f"campanhas_novo_arroba_{campanha_id}")
+                    else:
+                        arroba = escolha_influ
+                        st.caption(f"Selecionado: {arroba}")
+
+                    col_i1, col_i2 = st.columns(2)
+                    with col_i1:
+                        valor = st.number_input("Cachê", min_value=0.0, step=100.0, key=f"campanhas_valor_influ_{campanha_id}")
+                        entregaveis = st.text_input("Entregáveis", placeholder="Ex: 1 Reels + 2 combos de stories", key=f"campanhas_entregaveis_{campanha_id}")
+                    with col_i2:
+                        status_conteudo = st.selectbox("Status do conteúdo", STATUS_CONTEUDO, key=f"campanhas_status_conteudo_{campanha_id}")
+                        status_contrato = st.selectbox("Status do contrato", STATUS_CONTRATO, key=f"campanhas_status_contrato_{campanha_id}")
+
+                    observacoes = st.text_area("Observações", key=f"campanhas_obs_influ_{campanha_id}")
+
+                    if st.button("Salvar influenciador", key=f"campanhas_salvar_influ_{campanha_id}"):
+                        if not arroba:
+                            st.error("Preencha o @ do influenciador.")
+                        else:
+                            salvar_influenciador(
+                                campanha_id, arroba, valor, entregaveis,
+                                status_conteudo, status_contrato, observacoes
+                            )
+                            st.success("Influenciador adicionado ao squad.")
+                            st.rerun()
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with aba_agenda:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                st.subheader("Agenda da campanha")
+
+                with st.expander("Adicionar item na agenda"):
+                    col_ag1, col_ag2 = st.columns(2)
+
+                    with col_ag1:
+                        tipo_agenda = st.selectbox(
+                            "Tipo",
+                            ["Postagem", "Entrega de roteiro", "Entrega de conteúdo", "Reunião", "Aprovação", "Outro"],
+                            key=f"campanhas_tipo_agenda_{campanha_id}"
+                        )
+
+                        data_agenda = st.date_input(
+                            "Data",
+                            key=f"campanhas_data_agenda_{campanha_id}"
+                        )
+
+                        horario_agenda = st.text_input(
+                            "Horário",
+                            placeholder="Ex: 14:00",
+                            key=f"campanhas_horario_agenda_{campanha_id}"
+                        )
+
+                    with col_ag2:
+                        responsavel_agenda = st.text_input(
+                            "Responsável",
+                            value=campanha["responsavel"] if campanha["responsavel"] else "",
+                            key=f"campanhas_responsavel_agenda_{campanha_id}"
+                        )
+
+                        influenciador_agenda = st.text_input(
+                            "Influenciador",
+                            placeholder="Ex: @influenciador",
+                            key=f"campanhas_influ_agenda_{campanha_id}"
+                        )
+
+                        status_agenda = st.selectbox(
+                            "Status",
+                            ["Pendente", "Concluído", "Atrasado"],
+                            key=f"campanhas_status_agenda_{campanha_id}"
+                        )
+
+                    descricao_agenda = st.text_area(
+                        "Descrição",
+                        placeholder="Ex: Postagem do Reels / envio do roteiro / prazo de aprovação",
+                        key=f"campanhas_descricao_agenda_{campanha_id}"
+                    )
+
+                    if st.button("Salvar item na agenda", key=f"campanhas_salvar_agenda_{campanha_id}"):
+                        salvar_item_agenda(
+                            campanha_id,
+                            tipo_agenda,
+                            str(data_agenda),
+                            horario_agenda,
+                            responsavel_agenda,
+                            influenciador_agenda,
+                            descricao_agenda,
+                            status_agenda
+                        )
+                        st.success("Item adicionado na agenda.")
+                        st.rerun()
+
+                agenda_df = buscar_agenda_campanha(campanha_id)
+
+                if agenda_df.empty:
+                    st.info("Nenhum item cadastrado na agenda desta campanha ainda.")
+                else:
+                    for _, item in agenda_df.iterrows():
+                        st.markdown('<div class="mini-card">', unsafe_allow_html=True)
+                        st.write(f"**{item['data']} | {item['horario'] if item['horario'] else '-'} | {item['tipo']}**")
+                        st.write(f"**Influenciador:** {item['influenciador'] if item['influenciador'] else '-'}")
+                        st.write(f"**Responsável:** {item['responsavel'] if item['responsavel'] else '-'}")
+                        st.write(f"**Status:** {item['status']}")
+
+                        if item["descricao"]:
+                            st.caption(item["descricao"])
+
+                        if item["status"] != "Concluído":
+                            if st.button("Marcar como concluído", key=f"campanhas_concluir_agenda_{item['id']}"):
+                                concluir_item_agenda(int(item["id"]))
+                                st.success("Item concluído.")
+                                st.rerun()
+
+                        st.markdown('</div>', unsafe_allow_html=True)
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with aba_obs:
+                st.markdown('<div class="card">', unsafe_allow_html=True)
+                st.subheader("Observações da campanha")
+
+                nova_observacao = st.text_area(
+                    "Adicionar atualização",
+                    placeholder="Ex: Cliente pediu ajuste no roteiro / conteúdo enviado para aprovação / aguardando retorno...",
+                    key=f"campanhas_obs_campanha_{campanha_id}"
+                )
+
+                if st.button("Salvar observação", key=f"campanhas_salvar_obs_{campanha_id}"):
+                    if nova_observacao.strip():
+                        salvar_observacao(
+                            campanha_id,
+                            st.session_state.usuario_logado if "usuario_logado" in st.session_state else "Equipe Zoy",
+                            nova_observacao
+                        )
+                        st.success("Observação salva.")
+                        st.rerun()
+                    else:
+                        st.error("Digite uma observação antes de salvar.")
+
+                obs_df = buscar_observacoes(campanha_id)
+
+                if obs_df.empty:
+                    st.info("Nenhuma observação registrada ainda.")
+                else:
+                    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+                    for _, obs in obs_df.iterrows():
+                        st.markdown(
+                            f"""
+                            <div class="mini-card">
+                                <div class="small-muted">{obs['data']} • {obs['usuario']}</div>
+                                <div style="margin-top:8px;">{obs['observacao']}</div>
+                            </div>
+                            """,
+                            unsafe_allow_html=True
+                        )
+
+                st.markdown('</div>', unsafe_allow_html=True)
+
+            with aba_config:
+                col_c1, col_c2 = st.columns([1, 1])
+
+                with col_c1:
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
+                    st.subheader("Atualizar status")
+
+                    novo_status = st.selectbox(
+                        "Novo status",
+                        STATUS_CAMPANHA,
+                        index=STATUS_CAMPANHA.index(campanha["status"]) if campanha["status"] in STATUS_CAMPANHA else 0,
+                        key=f"campanhas_novo_status_{campanha_id}"
+                    )
+
+                    if st.button("Salvar novo status", key=f"campanhas_salvar_status_{campanha_id}"):
+                        atualizar_status_campanha(campanha_id, novo_status)
+                        st.success("Status atualizado.")
+                        st.rerun()
+                    st.markdown('</div>', unsafe_allow_html=True)
+
+                with col_c2:
+                    st.markdown('<div class="card">', unsafe_allow_html=True)
+                    st.subheader("Excluir campanha")
+                    st.markdown('<div class="danger-note">Essa ação apaga a campanha e todos os influenciadores, agenda e observações vinculadas.</div>', unsafe_allow_html=True)
+                    confirmar = st.text_input("Digite EXCLUIR para confirmar", key=f"campanhas_confirmar_excluir_{campanha_id}")
+
+                    if st.button("Excluir campanha definitivamente", key=f"campanhas_excluir_{campanha_id}"):
+                        if confirmar == "EXCLUIR":
+                            excluir_campanha(campanha_id)
+                            st.success("Campanha excluída.")
+                            st.rerun()
+                        else:
+                            st.error("Confirmação incorreta. Digite EXCLUIR.")
+                    st.markdown('</div>', unsafe_allow_html=True)
 
                 st.markdown('<div class="card">', unsafe_allow_html=True)
+                st.subheader("Editar campanha")
 
-                col1, col2, col3 = st.columns([2, 1, 1])
-
-                with col1:
-                    st.subheader(c["campanha"])
-                    st.write(f"**Cliente/Agência:** {c['cliente']}")
-                    st.write(f"**Marca:** {c['marca'] if c['marca'] else '-'}")
-                    st.write(f"**Responsável:** {c['responsavel']}")
-                    st.write(f"**Mês de início:** {c['inicio']}")
-                    st.write(f"**Prazo de pagamento:** {c['prazo_pagamento'] if c['prazo_pagamento'] else '-'}")
-
-                with col2:
-                    st.write("**Status**")
-                    st.markdown(
-                        f'<span class="status-pill">{c["status"]}</span>',
-                        unsafe_allow_html=True
+                with st.form(f"form_editar_campanha_{campanha_id}"):
+                    edit_cliente = st.text_input("Cliente/Agência", value=campanha["cliente"])
+                    edit_marca = st.text_input("Marca", value=campanha["marca"] if campanha["marca"] else "")
+                    edit_campanha = st.text_input("Nome da campanha", value=campanha["campanha"])
+                    responsavel_atual = campanha["responsavel"] if campanha["responsavel"] in RESPONSAVEIS_FIXOS else RESPONSAVEIS_FIXOS[0]
+                    edit_responsavel = st.selectbox(
+                        "Responsável interno",
+                        RESPONSAVEIS_FIXOS,
+                        index=RESPONSAVEIS_FIXOS.index(responsavel_atual),
+                        key=f"campanhas_edit_responsavel_{campanha_id}"
                     )
-                    st.write("")
-                    st.progress(int(c["progresso"]) / 100)
+                    edit_valor = st.number_input("Valor total", min_value=0.0, step=100.0, value=float(campanha["valor"]))
+                    edit_mes = st.text_input("Mês de início", value=campanha["inicio"])
+                    edit_prazo = st.text_input("Prazo de pagamento", value=campanha["prazo_pagamento"] if campanha["prazo_pagamento"] else "")
+                    edit_status = st.selectbox(
+                        "Status",
+                        STATUS_CAMPANHA,
+                        index=STATUS_CAMPANHA.index(campanha["status"]) if campanha["status"] in STATUS_CAMPANHA else 0,
+                        key=f"campanhas_edit_status_{campanha_id}"
+                    )
+                    edit_drive = st.text_input("Link do Drive", value=campanha["drive"] if campanha["drive"] else "")
+                    edit_briefing = st.text_area("Resumo do briefing", value=campanha["briefing"] if campanha["briefing"] else "")
+                    edit_obs = st.text_area("Observações internas", value=campanha["observacoes"] if campanha["observacoes"] else "")
 
-                with col3:
-                    st.write("**Valor**")
-                    st.subheader(formatar_moeda(c["valor"]))
+                    salvar_edicao = st.form_submit_button("Salvar alterações")
 
-                    if c["drive"]:
-                        st.link_button("Abrir Drive", c["drive"])
-
-                with st.expander("Abrir campanha"):
-                    squad_df = buscar_influenciadores_por_campanha(int(c["id"]))
-
-                    if squad_df.empty:
-                        st.info("Nenhum influenciador cadastrado nesta campanha ainda.")
-                    else:
-                        squad_view = squad_df[
-                            ["arroba", "valor", "entregaveis", "status_conteudo", "status_contrato"]
-                        ].copy()
-
-                        squad_view["valor"] = squad_view["valor"].apply(formatar_moeda)
-
-                        st.dataframe(
-                            squad_view,
-                            use_container_width=True,
-                            hide_index=True
+                    if salvar_edicao:
+                        atualizar_campanha(
+                            campanha_id, edit_cliente, edit_marca, edit_campanha, edit_responsavel,
+                            edit_valor, edit_mes, edit_prazo, edit_status,
+                            edit_drive, edit_briefing, edit_obs
                         )
+                        st.success("Campanha atualizada.")
+                        st.rerun()
 
                 st.markdown('</div>', unsafe_allow_html=True)
 
@@ -1814,49 +2120,71 @@ elif pagina == "Detalhe da Campanha":
             st.markdown('</div>', unsafe_allow_html=True)
 
 
-elif pagina == "Influenciadores":
-    st.title("Influenciadores")
-    st.markdown('<div class="sub">Base simples de influenciadores cadastrados no Hub</div>', unsafe_allow_html=True)
+elif pagina == "Squads":
+    campanhas_df = buscar_campanhas()
 
-    st.markdown('<div class="card">', unsafe_allow_html=True)
-    st.subheader("Cadastrar influenciador na base")
+    st.title("Squads")
+    st.markdown('<div class="sub">Cadastre influenciadores por campanha e acompanhe entregas</div>', unsafe_allow_html=True)
 
-    col_i1, col_i2 = st.columns([2, 1])
+    if campanhas_df.empty:
+        st.warning("Cadastre uma campanha antes de adicionar influenciadores.")
+    else:
+        campanhas_dict = {
+            f"{row['campanha']} | {row['marca'] if row['marca'] else row['cliente']}": int(row["id"])
+            for _, row in campanhas_df.iterrows()
+        }
 
-    with col_i1:
-        novo_arroba_base = st.text_input("@ do influenciador", placeholder="Ex: @influenciador", key="base_novo_arroba")
+        st.markdown('<div class="card">', unsafe_allow_html=True)
 
-    with col_i2:
-        st.write("")
-        st.write("")
-        if st.button("Salvar na base", key="salvar_base_influenciador"):
-            if not novo_arroba_base.strip():
+        campanha_escolhida = st.selectbox("Campanha", list(campanhas_dict.keys()))
+
+        base_influs = buscar_influenciadores_base()
+        opcoes = ["Cadastrar novo"] + base_influs
+
+        escolha_influ = st.selectbox("Influenciador", opcoes)
+
+        if escolha_influ == "Cadastrar novo":
+            arroba = st.text_input("@ do influenciador")
+        else:
+            arroba = escolha_influ
+            st.caption(f"Selecionado: {arroba}")
+
+        col1, col2 = st.columns(2)
+
+        with col1:
+            valor = st.number_input("Cachê", min_value=0.0, step=100.0)
+            entregaveis = st.text_input("Entregáveis", placeholder="Ex: 1 Reels + 2 combos de stories")
+
+        with col2:
+            status_conteudo = st.selectbox("Status do conteúdo", STATUS_CONTEUDO)
+            status_contrato = st.selectbox("Status do contrato", STATUS_CONTRATO)
+
+        observacoes = st.text_area("Observações")
+
+        if st.button("Salvar influenciador"):
+            if not arroba:
                 st.error("Preencha o @ do influenciador.")
             else:
-                salvar_influenciador_base(novo_arroba_base)
-                st.success("Influenciador salvo na base.")
-                st.rerun()
+                campanha_id = campanhas_dict[campanha_escolhida]
+                salvar_influenciador(
+                    campanha_id, arroba, valor, entregaveis,
+                    status_conteudo, status_contrato, observacoes
+                )
+                st.success("Influenciador cadastrado com sucesso.")
 
-    st.markdown('</div>', unsafe_allow_html=True)
+        st.markdown('</div>', unsafe_allow_html=True)
 
-    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
-    st.subheader("Base cadastrada")
+        st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+        st.subheader("Influenciadores cadastrados")
 
-    base_influs = buscar_influenciadores_base()
+        influ_df = buscar_influenciadores()
 
-    if not base_influs:
-        st.info("Nenhum influenciador cadastrado na base ainda.")
-    else:
-        busca_influ = st.text_input("Buscar influenciador", placeholder="Digite o @ para filtrar...", key="busca_base_influ")
-
-        lista = base_influs
-        if busca_influ:
-            termo = busca_influ.strip().lower()
-            lista = [i for i in lista if termo in i.lower()]
-
-        df_base = pd.DataFrame({"@": lista})
-        st.dataframe(df_base, use_container_width=True, hide_index=True)
-        st.caption("Esta aba é apenas uma base geral. As campanhas em que cada influenciador participa continuam dentro de cada campanha.")
+        if influ_df.empty:
+            st.info("Nenhum influenciador cadastrado ainda.")
+        else:
+            influ_view = influ_df[["campanha", "cliente", "marca", "arroba", "valor", "entregaveis", "status_conteudo", "status_contrato", "observacoes"]].copy()
+            influ_view["valor"] = influ_view["valor"].apply(formatar_moeda)
+            st.dataframe(influ_view, use_container_width=True, hide_index=True)
 
 
 elif pagina == "Contratos":
@@ -2081,6 +2409,44 @@ elif pagina == "Contratos":
                                     )
 
                         st.markdown('<div style="height:10px;"></div>', unsafe_allow_html=True)
+
+
+elif pagina == "Influenciadores":
+    st.title("Influenciadores")
+    st.markdown('<div class="sub">Base simples de influenciadores cadastrados para seleção nas campanhas</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("Cadastrar novo influenciador na base")
+
+    novo_arroba_base = st.text_input("@ do influenciador", placeholder="Ex: @influenciador", key="base_novo_arroba")
+
+    if st.button("Salvar influenciador na base", key="salvar_influ_base"):
+        if novo_arroba_base.strip():
+            salvar_influenciador_base(novo_arroba_base)
+            st.success("Influenciador salvo na base.")
+            st.rerun()
+        else:
+            st.error("Preencha o @ do influenciador.")
+
+    st.markdown('</div>', unsafe_allow_html=True)
+
+    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+    st.subheader("Base cadastrada")
+
+    base_influs = buscar_influenciadores_base()
+
+    if not base_influs:
+        st.info("Nenhum influenciador cadastrado na base ainda.")
+    else:
+        busca_base = st.text_input("Buscar influenciador", placeholder="Digite o @", key="buscar_influ_base")
+        lista_filtrada = base_influs
+
+        if busca_base.strip():
+            termo = busca_base.strip().lower()
+            lista_filtrada = [arroba for arroba in base_influs if termo in arroba.lower()]
+
+        df_base = pd.DataFrame({"@": lista_filtrada})
+        st.dataframe(df_base, use_container_width=True, hide_index=True)
 
 elif pagina == "Pós Campanha":
     campanhas_df = buscar_campanhas()
