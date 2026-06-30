@@ -491,9 +491,13 @@ def salvar_campanha(cliente, marca, campanha, responsavel, valor, inicio, prazo_
         "status_pos_campanha": "Pendente",
     }
 
-    response = supabase.table("campanhas").insert(payload).execute()
-    data = response.data or []
-    return int(data[0]["id"]) if data else None
+    try:
+        response = supabase.table("campanhas").insert(payload).execute()
+        data = response.data or []
+        return int(data[0]["id"]) if data else None
+    except Exception as erro:
+        st.error(f"Erro real ao salvar campanha: {erro}")
+        return None
 
 
 def buscar_campanhas():
@@ -1362,6 +1366,10 @@ elif pagina == "Nova Campanha":
                 cliente, marca, campanha, responsavel, valor, mes_inicio,
                 prazo_pagamento, status, drive, briefing, observacoes
             )
+
+            if campanha_id is None:
+                st.error("A campanha não foi salva. Verifique o erro acima antes de cadastrar influenciadores.")
+                st.stop()
 
             for influ in influenciadores_temp:
                 if influ["arroba"]:
