@@ -1020,9 +1020,7 @@ menu_opcoes = [
     "Dashboard",
     "Nova Campanha",
     "Campanhas",
-    "Detalhe da Campanha",
-    "Squads",
-    "Contratos",
+    "Influenciadores",
     "Pós Campanha"
 ]
 
@@ -1472,7 +1470,7 @@ elif pagina == "Campanhas":
                     if c["drive"]:
                         st.link_button("Abrir Drive", c["drive"])
 
-                with st.expander("Ver detalhes rápidos"):
+                with st.expander("Abrir campanha"):
                     squad_df = buscar_influenciadores_por_campanha(int(c["id"]))
 
                     if squad_df.empty:
@@ -1816,71 +1814,49 @@ elif pagina == "Detalhe da Campanha":
             st.markdown('</div>', unsafe_allow_html=True)
 
 
-elif pagina == "Squads":
-    campanhas_df = buscar_campanhas()
+elif pagina == "Influenciadores":
+    st.title("Influenciadores")
+    st.markdown('<div class="sub">Base simples de influenciadores cadastrados no Hub</div>', unsafe_allow_html=True)
 
-    st.title("Squads")
-    st.markdown('<div class="sub">Cadastre influenciadores por campanha e acompanhe entregas</div>', unsafe_allow_html=True)
+    st.markdown('<div class="card">', unsafe_allow_html=True)
+    st.subheader("Cadastrar influenciador na base")
 
-    if campanhas_df.empty:
-        st.warning("Cadastre uma campanha antes de adicionar influenciadores.")
-    else:
-        campanhas_dict = {
-            f"{row['campanha']} | {row['marca'] if row['marca'] else row['cliente']}": int(row["id"])
-            for _, row in campanhas_df.iterrows()
-        }
+    col_i1, col_i2 = st.columns([2, 1])
 
-        st.markdown('<div class="card">', unsafe_allow_html=True)
+    with col_i1:
+        novo_arroba_base = st.text_input("@ do influenciador", placeholder="Ex: @influenciador", key="base_novo_arroba")
 
-        campanha_escolhida = st.selectbox("Campanha", list(campanhas_dict.keys()))
-
-        base_influs = buscar_influenciadores_base()
-        opcoes = ["Cadastrar novo"] + base_influs
-
-        escolha_influ = st.selectbox("Influenciador", opcoes)
-
-        if escolha_influ == "Cadastrar novo":
-            arroba = st.text_input("@ do influenciador")
-        else:
-            arroba = escolha_influ
-            st.caption(f"Selecionado: {arroba}")
-
-        col1, col2 = st.columns(2)
-
-        with col1:
-            valor = st.number_input("Cachê", min_value=0.0, step=100.0)
-            entregaveis = st.text_input("Entregáveis", placeholder="Ex: 1 Reels + 2 combos de stories")
-
-        with col2:
-            status_conteudo = st.selectbox("Status do conteúdo", STATUS_CONTEUDO)
-            status_contrato = st.selectbox("Status do contrato", STATUS_CONTRATO)
-
-        observacoes = st.text_area("Observações")
-
-        if st.button("Salvar influenciador"):
-            if not arroba:
+    with col_i2:
+        st.write("")
+        st.write("")
+        if st.button("Salvar na base", key="salvar_base_influenciador"):
+            if not novo_arroba_base.strip():
                 st.error("Preencha o @ do influenciador.")
             else:
-                campanha_id = campanhas_dict[campanha_escolhida]
-                salvar_influenciador(
-                    campanha_id, arroba, valor, entregaveis,
-                    status_conteudo, status_contrato, observacoes
-                )
-                st.success("Influenciador cadastrado com sucesso.")
+                salvar_influenciador_base(novo_arroba_base)
+                st.success("Influenciador salvo na base.")
+                st.rerun()
 
-        st.markdown('</div>', unsafe_allow_html=True)
+    st.markdown('</div>', unsafe_allow_html=True)
 
-        st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
-        st.subheader("Influenciadores cadastrados")
+    st.markdown('<div class="soft-divider"></div>', unsafe_allow_html=True)
+    st.subheader("Base cadastrada")
 
-        influ_df = buscar_influenciadores()
+    base_influs = buscar_influenciadores_base()
 
-        if influ_df.empty:
-            st.info("Nenhum influenciador cadastrado ainda.")
-        else:
-            influ_view = influ_df[["campanha", "cliente", "marca", "arroba", "valor", "entregaveis", "status_conteudo", "status_contrato", "observacoes"]].copy()
-            influ_view["valor"] = influ_view["valor"].apply(formatar_moeda)
-            st.dataframe(influ_view, use_container_width=True, hide_index=True)
+    if not base_influs:
+        st.info("Nenhum influenciador cadastrado na base ainda.")
+    else:
+        busca_influ = st.text_input("Buscar influenciador", placeholder="Digite o @ para filtrar...", key="busca_base_influ")
+
+        lista = base_influs
+        if busca_influ:
+            termo = busca_influ.strip().lower()
+            lista = [i for i in lista if termo in i.lower()]
+
+        df_base = pd.DataFrame({"@": lista})
+        st.dataframe(df_base, use_container_width=True, hide_index=True)
+        st.caption("Esta aba é apenas uma base geral. As campanhas em que cada influenciador participa continuam dentro de cada campanha.")
 
 
 elif pagina == "Contratos":
